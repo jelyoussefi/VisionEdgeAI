@@ -16,10 +16,11 @@
 {% block content %}
 
     <div class="main">
+        
         <h1 id="title">Vision Edge AI</h1>
 
         <div>
-            <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid">   
+            <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">   
         </div>
         <div id="control" class="mt-3">
             <!-- Dropdown for selecting existing files and file input for new uploads -->
@@ -117,27 +118,36 @@
                 $(`.file-option[data-file="${currentFile}"]`).hide();
             });
 
-            // Function to select a source file
+            // Function to select a source file with scaling effect
             function selectSource(source) {
-                $('#fileDropdown').text(source);
+                // Apply scale-out effect on video
+                $('#source').removeClass('scale-in').addClass('scale-out');
 
-                $.ajax({
-                    url: '/select_source',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ source: source }),
-                    success: function(response) {
-                        console.log('Source selected successfully:', response);
+                // Delay for scale-out, then update source and scale back in
+                setTimeout(function() {
+                    $('#fileDropdown').text(source);
+                    $.ajax({
+                        url: '/select_source',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ source: source }),
+                        success: function(response) {
+                            console.log('Source selected successfully:', response);
 
-                        // Update the current file and hide it in the dropdown
-                        $(`.file-option[data-file="${currentFile}"]`).show();
-                        $(`.file-option[data-file="${source}"]`).hide();
-                        currentFile = source;
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error selecting source:', error);
-                    }
-                });
+                            // Hide the previously selected source and update the current file
+                            $(`.file-option[data-file="${currentFile}"]`).show();
+                            $(`.file-option[data-file="${source}"]`).hide();
+                            currentFile = source;
+
+                            // Apply scale-in effect after source selection
+                            $('#source').removeClass('scale-out').addClass('scale-in');
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error selecting source:', error);
+                            $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
+                        }
+                    });
+                }, 500); // Delay to match the CSS transition duration
             }
 
             // Handle file selection from existing files
@@ -148,56 +158,36 @@
                 }
             });
 
-            // Handle new file upload
-            $('#fileInput').on('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const formData = new FormData();
-                    formData.append('file', file);
+            // Model selection with scale effect on video
+            function selectModel(model) {
+                // Add scale-out effect to video
+                $('#source').removeClass('scale-in').addClass('scale-out');
 
+                // Delay for scale-out, then update model and scale back in
+                setTimeout(function() {
+                    $('#modelDropdown').text(model);
                     $.ajax({
-                        url: '/upload',
+                        url: '/select_model',
                         type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
+                        contentType: 'application/json',
+                        data: JSON.stringify({ model: model }),
                         success: function(response) {
-                            $('#uploadStatus').html('<div class="alert alert-success">File uploaded successfully!</div>');
-                            $('#fileDropdown').text(file.name);
-                            console.log(response.message);
+                            console.log('Model selected successfully:', response);
 
-                            // Add new file to dropdown menu and hide the current file
-                            $('#existingFiles').append(
-                                `<a class="dropdown-item file-option" data-file="${file.name}">${file.name}</a>`
-                            );
-                            $(`.file-option[data-file="${currentFile}"]`).show();
-                            $(`.file-option[data-file="${file.name}"]`).hide();
-                            currentFile = file.name;
+                            // Hide previously selected model and update the current model
+                            $(`.model-option[data-model="${currentModel}"]`).show();
+                            $(`.model-option[data-model="${model}"]`).hide();
+                            currentModel = model;
+
+                            // Scale video back in after model selection
+                            $('#source').removeClass('scale-out').addClass('scale-in');
                         },
                         error: function(xhr, status, error) {
-                            $('#uploadStatus').html('<div class="alert alert-danger">Failed to upload file.</div>');
-                            console.error('Upload failed:', xhr.responseText);
+                            console.error('Error selecting model:', error);
+                            $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
                         }
                     });
-                }
-            });
-
-            // Model, device, and precision selection functions and handlers
-            function selectModel(model) {
-                $('#modelDropdown').text(model);
-                $.ajax({
-                    url: '/select_model',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ model: model }),
-                    success: function(response) {
-                        console.log('Model selected successfully:', response);
-                        currentModel = model;
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error selecting model:', error);
-                    }
-                });
+                }, 500); // Delay matches the CSS transition duration
             }
 
             function selectDevice(device) {
@@ -209,6 +199,9 @@
                     data: JSON.stringify({ device: device }),
                     success: function(response) {
                         console.log('Device selected successfully:', response);
+
+                        $(`.device-option[data-device="${currentDevice}"]`).show();
+                        $(`.device-option[data-device="${device}"]`).hide();
                         currentDevice = device;
                     },
                     error: function(xhr, status, error) {
@@ -226,6 +219,9 @@
                     data: JSON.stringify({ precision: precision }),
                     success: function(response) {
                         console.log('Precision selected successfully:', response);
+
+                        $(`.precision-option[data-precision="${currentPrecision}"]`).show();
+                        $(`.precision-option[data-precision="${precision}"]`).hide();
                         currentPrecision = precision;
                     },
                     error: function(xhr, status, error) {

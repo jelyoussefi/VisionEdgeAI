@@ -12,10 +12,12 @@ def draw_perf(image:np.ndarray, device, fps, cpu_load):
 	bcolor = (0,255,0)
 	fcolor = (0,0,255)
 	
-	def circle(text, radius, pos, left=True, bcolor = (0,255,0), fcolor = (0,0,255), legend=""):
+	def circle(text, radius, pos=None, left=True, bcolor = (0,255,0), fcolor = (0,0,255), legend=""):
 		textsize = cv2.getTextSize(text, fontFace, fontScale, thickness)[0]
 
-		if left:
+		if pos is None:
+			x = frame_size[1]/2
+		elif left:
 			x = margin + 2*(radius+5)*pos + radius/2
 		else :
 			x = frame_size[1] - margin - 2*(radius+5)*pos - radius/2
@@ -31,11 +33,11 @@ def draw_perf(image:np.ndarray, device, fps, cpu_load):
 		cv2.putText(image, legend, textPos, fontFace, 0.4, (255,255,255), thickness, cv2.LINE_AA)
 
 	# device name
-	circle(device, 20, 0)
+	circle(device, 20)
 
 	# fps
 	fps = f"{int(fps)}"
-	circle(fps, 20, 1, False, legend="fps")
+	circle(fps, 20, 0, legend="fps")
 
 	#cpu load
 	if cpu_load is not None:
