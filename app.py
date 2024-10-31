@@ -136,7 +136,7 @@ class ObjectDetector():
 
 			if input != self.input:
 				print(f"Selected source: {input}")
-				self.init(self.model.model_path, input, self.model.device, self.model.data_type )
+				self.init(self.model.model_path, input, self.model.device, self.model.data_type)
 
 			return jsonify({'message': f'Source {source} selected successfully'}), 200
 	
@@ -160,7 +160,10 @@ class ObjectDetector():
 			model = data.get('model')
 			if not model:
 				return jsonify({'error': 'No model provided'}), 400
-			print(f"Selected model: {model}")
+			if model != self.model.name:
+				print(f"Selected model: {model}")
+				self.init(model, self.input, self.model.device, self.model.data_type)
+
 			return jsonify({'message': f'Model {model} selected successfully'}), 200
 		
 
