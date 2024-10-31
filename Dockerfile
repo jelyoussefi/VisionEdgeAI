@@ -43,4 +43,6 @@ RUN pip3 install  Flask-Bootstrap
 
 RUN pip3 install  fire
 RUN pip3 install shapely
+RUN apt install -y pciutils
+
 

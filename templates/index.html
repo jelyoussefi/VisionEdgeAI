@@ -1,7 +1,7 @@
 {% extends "bootstrap/base.html" %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Vision Edge AI{% endblock %}
+{% block title %}Object Detection{% endblock %}
 
 {% block head %}
   {{ super() }}
@@ -14,10 +14,10 @@
 {% endblock %}
 
 {% block content %}
-   
 
     <div class="main">
-        <h1 id="title">Vision Edge AI</h1>
+         <h1 id="title">Vision Edge AI</h1>
+
         <div>
             <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid">   
         </div>
@@ -74,14 +74,17 @@
             </div>
         </div>
         
-        <!-- Table for displaying the CPU model -->
+        <!-- Table for displaying the CPU and GPU models -->
         <div id="cpuInfo" class="mt-3">
             <table class="table table-borderless">
                 <tr>
                     <td><strong>CPU</strong></td>
                     <td class="cpu-model">{{ cpu_model }}</td>
                 </tr>
-
+                <tr>
+                    <td><strong>GPU</strong></td>
+                    <td class="gpu-model">{{ gpu_model }}</td>
+                </tr>
             </table>
         </div>
 
@@ -111,21 +114,31 @@
                 });
             });
 
+            // Function to select a source file
+            function selectSource(source) {
+                $('#fileDropdown').text(source);
+
+                $.ajax({
+                    url: '/select_source',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ source: source }),
+                    success: function(response) {
+                        console.log('Source selected successfully:', response);
+                        currentFile = source;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error selecting source:', error);
+                    }
+                });
+            }
+
             // Handle file selection from existing files
             $('#fileDropdownMenu').on('click', '.file-option', function() {
                 const selectedFile = $(this).data('file');
-                $('#fileDropdown').text(selectedFile);
-
-                // Optional: Send selected file to server if needed
-                $.ajax({
-                    url: '/select_source_file',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ file: selectedFile }),
-                    success: function(response) {
-                        console.log(response.message);
-                    }
-                });
+                if (selectedFile !== currentFile) {
+                    selectSource(selectedFile);
+                }
             });
 
             // Handle new file upload

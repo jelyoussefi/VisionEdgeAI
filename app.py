@@ -37,7 +37,7 @@ class ObjectDetector():
 		self.frames_number = 0
 		self.cpu_loads.clear()
 		self.cpu_loads.append(psutil.cpu_percent(0.1))
-		self.start_time = None
+		self.start_time = perf_counter()
 		self.cv.release()
 
 	def get_cpu_model(self):
@@ -75,7 +75,7 @@ class ObjectDetector():
 						gpu_model = line.split(": ")[1]
 						break
 
-			return gpu_model
+			return gpu_model.replace("Intel Corporation", "").strip()
 		
 		except Exception as e:
 			print(f"Error fetching GPU model: {e}")
@@ -99,7 +99,7 @@ class ObjectDetector():
 									default_precision=self.model.data_type,
 									default_file=default_file,
 									cpu_model=cpu_model,
-                               		gpu_model=gpu_model
+									gpu_model=gpu_model
 								   )
 
 		@app.route('/video_feed')
@@ -125,6 +125,21 @@ class ObjectDetector():
 			files = [file for file in files if os.path.isfile(os.path.join(self.upload_folder, file))]
 			return jsonify(files)
 
+		@app.route('/select_source', methods=['POST'])
+		def select_source():
+			data = request.get_json()
+			source = data.get('source')
+			input = os.path.join(self.upload_folder, source)
+			
+			if not source:
+				return jsonify({'error': 'No source provided'}), 400
+
+			if input != self.input:
+				print(f"Selected source: {input}")
+				self.init(self.model.model_path, input, self.model.device, self.model.data_type )
+
+			return jsonify({'message': f'Source {source} selected successfully'}), 200
+	
 
 		@app.route('/select_device', methods=['POST'])
 		def select_device():
@@ -178,10 +193,12 @@ class ObjectDetector():
 			
 			frame = self.cap.read()
 
+			self.cv.acquire()
+
 			if frame is not None:
 				frame = self.model.predict(frame.copy())
 				self.frames_number += 1
-				pv.draw_perf(frame, "yolov8", self.model.device, self.fps(), self.model.fps(), self.cpu_load(), self.model.data_type)
+				pv.draw_perf(frame, self.model.device, self.fps(), self.cpu_load())
 
 				ret, buffer = cv2.imencode('.jpg', frame)
 				frame = buffer.tobytes()
@@ -189,7 +206,6 @@ class ObjectDetector():
 				if not self.running:
 					break
 	
-			self.cv.acquire()
 
 		self.cap = None
 		self.cv.notify_all()

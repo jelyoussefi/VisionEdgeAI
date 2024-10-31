@@ -100,11 +100,16 @@ html, body {
 }
 
 /* Style for CPU model cell */
-#cpuInfo .cpu-model {
+#cpuInfo .cpu-model  {
     font-weight: bold;
     color: #28a745; /* Green color */
 }
 
+/* Style for GPU model cell */
+#cpuInfo .gpu-model  {
+    font-weight: bold;
+    color: #28a745; /* Green color */
+}
 /* Stylish title for Vision Edge AI */
 #title {
     font-size: 48px;

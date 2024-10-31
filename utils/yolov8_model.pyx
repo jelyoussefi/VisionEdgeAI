@@ -34,6 +34,7 @@ cdef class YoloV8ModelBase():
 	def __init__(self, model_path, device, image_size=640, data_type="FP16"):
 		self.device = device
 		self.data_type = data_type
+		self.model_path = model_path
 		self.name = os.path.splitext(os.path.basename(model_path))[0] 
 		model = YOLO(model_path)
 		self.label_map = model.names
@@ -289,8 +290,6 @@ cdef class YoloV8ModelBase():
 		# Draw bounding boxes and labels of detections
 		for box, score, class_id in zip(boxes, scores, class_ids):
 			label = self.label_map[class_id]
-			if label != "person":
-				continue
 				
 			color = colors(class_id)
 
