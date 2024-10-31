@@ -1,0 +1,8 @@
+imutils 
+protobuf
+Pillow
+psutil
+cython
+screeninfo
+ultralytics
+

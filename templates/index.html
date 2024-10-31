@@ -1,0 +1,234 @@
+{% extends "bootstrap/base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Object Detection{% endblock %}
+
+{% block head %}
+  {{ super() }}
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@turf/turf@6.2.0-alpha.1/dist/turf.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="main">
+        <div>
+            <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid">   
+        </div>
+        <div id="control" class="mt-3">
+            <!-- Dropdown for selecting existing files and file input for new uploads -->
+            <div class="dropdown">
+                <button class="custom-button btn btn-primary dropdown-toggle" type="button" id="fileDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    {{ default_file }}
+                </button>
+                <div class="dropdown-menu" id="fileDropdownMenu">
+                    <h6 class="dropdown-header">Select Existing File</h6>
+                    <div id="existingFiles"></div>
+                    <div class="dropdown-divider"></div>
+                    <h6 class="dropdown-header">Upload New File</h6>
+                    <label class="dropdown-item" for="fileInput" style="cursor: pointer;">Choose File...</label>
+                    <input type="file" id="fileInput" style="display: none;">
+                </div>
+            </div>
+
+            <!-- Model selection dropdown -->
+            <div class="dropdown">
+                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="modelDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    {{ default_model }}
+                </button>
+                <div class="dropdown-menu" aria-labelledby="modelDropdown">
+                    <a class="dropdown-item model-option" data-model="yolov8n">yolov8n</a>
+                    <a class="dropdown-item model-option" data-model="yolov8s">yolov8s</a>
+                    <a class="dropdown-item model-option" data-model="yolov8m">yolov8m</a>
+                </div>
+            </div>
+
+            <!-- Device selection dropdown -->
+            <div class="dropdown">
+                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="deviceDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    {{ default_device }}
+                </button>
+                <div class="dropdown-menu" aria-labelledby="deviceDropdown">
+                    <a class="dropdown-item device-option" data-device="GPU">GPU</a>
+                    <a class="dropdown-item device-option" data-device="CPU">CPU</a>
+                    <a class="dropdown-item device-option" data-device="NPU">NPU</a>
+                </div>
+            </div>
+
+            <!-- Precision selection dropdown -->
+            <div class="dropdown">
+                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="precisionDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    {{ default_precision }}
+                </button>
+                <div class="dropdown-menu" aria-labelledby="precisionDropdown">
+                    <a class="dropdown-item precision-option" data-precision="FP32">FP32</a>
+                    <a class="dropdown-item precision-option" data-precision="FP16">FP16</a>
+                    <a class="dropdown-item precision-option" data-precision="INT8">INT8</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- New div for CPU model information -->
+        <div id="cpuInfo" class="mt-3">
+            <h6>CPU Model:</h6>
+            <p>{{ cpu_model }}</p>
+        </div>
+
+        <div id="uploadStatus" class="mt-3"></div> <!-- Display upload status -->
+    </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.bundle.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            let currentFile = "{{ default_file }}";
+            let currentDevice = "{{ default_device }}";  
+            let currentPrecision = "{{ default_precision }}";  
+            let currentModel = "{{ default_model }}";  
+
+            // Load files dynamically for selection
+            $.getJSON('/get_uploaded_files', function(files) {
+                files.forEach(function(file) {
+                    $('#existingFiles').append(
+                        `<a class="dropdown-item file-option" data-file="${file}">${file}</a>`
+                    );
+                });
+            });
+
+            // Handle file selection from existing files
+            $('#fileDropdownMenu').on('click', '.file-option', function() {
+                const selectedFile = $(this).data('file');
+                $('#fileDropdown').text(selectedFile);
+
+                // Optional: Send selected file to server if needed
+                $.ajax({
+                    url: '/select_source_file',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ file: selectedFile }),
+                    success: function(response) {
+                        console.log(response.message);
+                    }
+                });
+            });
+
+            // Handle new file upload
+            $('#fileInput').on('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    $.ajax({
+                        url: '/upload',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            $('#uploadStatus').html('<div class="alert alert-success">File uploaded successfully!</div>');
+                            $('#fileDropdown').text(file.name);
+                            console.log(response.message);
+
+                            // Add new file to dropdown menu
+                            $('#existingFiles').append(
+                                `<a class="dropdown-item file-option" data-file="${file.name}">${file.name}</a>`
+                            );
+                        },
+                        error: function(xhr, status, error) {
+                            $('#uploadStatus').html('<div class="alert alert-danger">Failed to upload file.</div>');
+                            console.error('Upload failed:', xhr.responseText);
+                        }
+                    });
+                }
+            });
+
+            // Model, device, and precision selection functions and handlers
+            function selectModel(model) {
+                $('#modelDropdown').text(model);
+                $.ajax({
+                    url: '/select_model',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ model: model }),
+                    success: function(response) {
+                        console.log('Model selected successfully:', response);
+                        currentModel = model;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error selecting model:', error);
+                    }
+                });
+            }
+
+            function selectDevice(device) {
+                $('#deviceDropdown').text(device);
+                $.ajax({
+                    url: '/select_device',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ device: device }),
+                    success: function(response) {
+                        console.log('Device selected successfully:', response);
+                        currentDevice = device;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error selecting device:', error);
+                    }
+                });
+            }
+
+            function selectPrecision(precision) {
+                $('#precisionDropdown').text(precision);
+                $.ajax({
+                    url: '/select_precision',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ precision: precision }),
+                    success: function(response) {
+                        console.log('Precision selected successfully:', response);
+                        currentPrecision = precision;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error selecting precision:', error);
+                    }
+                });
+            }
+
+            // Initial selection of model, device, and precision
+            selectModel(currentModel);
+            selectDevice(currentDevice);
+            selectPrecision(currentPrecision);
+
+            // Model, Device, and Precision selection click handlers
+            $('.model-option').on('click', function() {
+                const selectedModel = $(this).data('model');
+                if (selectedModel !== currentModel) {
+                    selectModel(selectedModel);
+                }
+            });
+
+            $('.device-option').on('click', function() {
+                const selectedDevice = $(this).data('device');
+                if (selectedDevice !== currentDevice) {
+                    selectDevice(selectedDevice);
+                }
+            });
+
+            $('.precision-option').on('click', function() {
+                const selectedPrecision = $(this).data('precision');
+                if (selectedPrecision !== currentPrecision) {
+                    selectPrecision(selectedPrecision);
+                }
+            });
+        });
+    </script>
+{% endblock %}
