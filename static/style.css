@@ -6,20 +6,18 @@ html, body {
     justify-content: center;
     align-items: center;
     text-align: center;
-    background: linear-gradient(135deg, #e0eafc, #cfdef3); /* Soft blue gradient */
+    background: linear-gradient(135deg, #f5f5f5, #e0e0e0); /* Soft gray gradient */
     font-family: Arial, Helvetica, sans-serif;
 }
 
 #source {
-    opacity: 1; /* Set the default opacity */
-    transform: scale(1); /* Ensure the default scale */
-    border: 4px solid #007bff; /* Button color */
+    opacity: 1;
+    transform: scale(1);
+    border: 4px solid #007bff;
     border-radius: 8px;
     box-shadow: 
-        0 8px 16px rgba(0, 0, 0, 0.3), /* Dark shadow */
-        0 4px 12px rgba(0, 123, 255, 0.3); /* Blue shadow */
-    
-    /* Add the animation to fade and scale */
+        0 8px 16px rgba(0, 0, 0, 0.3),
+        0 4px 12px rgba(0, 123, 255, 0.3);
     animation: fadeInZoom 0.8s ease forwards;
 }
 
@@ -51,26 +49,76 @@ html, body {
     font-size: 14px;
     font-weight: bold;
     color: #ffffff;
-    background: linear-gradient(145deg, #007bff, #0056b3); /* Soft gradient */
+    background: linear-gradient(145deg, #007bff, #0056b3);
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
 }
 
 .custom-button:hover {
-    background: linear-gradient(145deg, #0056b3, #004494); /* Darker gradient on hover */
-    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.15); /* Slightly more pronounced shadow */
-    transform: translateY(-2px); /* Slight lift on hover */
+    background: linear-gradient(145deg, #0056b3, #004494);
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 .custom-button:active {
-    background: linear-gradient(145deg, #004494, #003366); /* Even darker for active state */
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); /* Reduce shadow when clicked */
-    transform: translateY(1px); /* Slight push down effect */
+    background: linear-gradient(145deg, #004494, #003366);
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    transform: translateY(1px);
 }
 
 .custom-button:focus {
     outline: none;
+}
+
+/* Styling for CPU information */
+#cpuInfo {
+    margin-top: 20px;
+    padding: 10px;
+    width: auto;
+    display: inline-block; /* Makes width adjust based on content */
+    font-size: 14px;
+    color: #333;
+    background: linear-gradient(145deg, #f0f4ff, #dce8f7);
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.1),
+        0 2px 6px rgba(0, 0, 123, 255, 0.2);
+}
+
+/* Compact table styling */
+#cpuInfo .table {
+    margin: 0;
+    font-size: 14px;
+}
+
+#cpuInfo .table td {
+    padding: 4px 8px;
+}
+
+/* Style for CPU model cell */
+#cpuInfo .cpu-model {
+    font-weight: bold;
+    color: #28a745; /* Green color */
+}
+
+/* Stylish title for Vision Edge AI */
+#title {
+    font-size: 48px;
+    font-weight: bold;
+    text-align: center;
+    color: #007bff;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    color: transparent;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    font-family: 'Arial', sans-serif;
+    letter-spacing: 1.5px;
+    padding-bottom: 5px;
+    border-bottom: 3px solid #0056b3;
 }

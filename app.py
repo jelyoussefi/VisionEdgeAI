@@ -1,4 +1,4 @@
-import os, argparse
+import os, platform, subprocess
 import fire
 import cv2
 import numpy as np
@@ -7,7 +7,6 @@ import json
 from threading import Thread, Condition
 from collections import deque
 import psutil
-import platform
 from time import perf_counter
 from flask import Flask, redirect, url_for, render_template, make_response, jsonify, request, Response
 from flask_bootstrap import Bootstrap
@@ -42,8 +41,46 @@ class ObjectDetector():
 		self.cv.release()
 
 	def get_cpu_model(self):
-		return platform.processor() or "CPU model not available"
+		try:
+			# First, try to get CPU information using platform.uname().processor or platform.processor()
+			cpu_model = platform.uname().processor
+			if not cpu_model or cpu_model == "x86_64":
+				cpu_model = platform.processor()
 
+			# Linux-specific method: Read /proc/cpuinfo for the model name
+			if not cpu_model or cpu_model == "x86_64":
+				if platform.system() == "Linux":
+					with open("/proc/cpuinfo", "r") as f:
+						for line in f:
+							if "model name" in line:
+								cpu_model = line.split(":")[1].strip()
+								break
+
+			return cpu_model or "CPU model not available"
+		
+		except Exception as e:
+			print(f"Error fetching CPU model: {e}")
+			return "CPU model not available"
+
+	def get_gpu_model(self):
+		try:
+			gpu_model = "GPU model not available"
+			
+			result = subprocess.run(
+				["lspci"], capture_output=True, text=True
+			)
+			for line in result.stdout.splitlines():
+				if "VGA compatible controller" in line or "3D controller" in line:
+					if "Intel" in line:
+						gpu_model = line.split(": ")[1]
+						break
+
+			return gpu_model
+		
+		except Exception as e:
+			print(f"Error fetching GPU model: {e}")
+			return "GPU model not available"
+		
 	def run(self):
 		app = self.app
 
@@ -54,13 +91,15 @@ class ObjectDetector():
 			files = [file for file in files if os.path.isfile(os.path.join(self.upload_folder, file))]
 			default_file = files[0] if files else "No files available"
 			cpu_model = self.get_cpu_model()
-			
+			gpu_model = self.get_gpu_model()
+
 			return render_template('index.html', 
 									default_device=self.model.device, 
 									default_model=self.model.name,
 									default_precision=self.model.data_type,
 									default_file=default_file,
-									cpu_model=cpu_model
+									cpu_model=cpu_model,
+                               		gpu_model=gpu_model
 								   )
 
 		@app.route('/video_feed')

@@ -1,7 +1,7 @@
 {% extends "bootstrap/base.html" %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Object Detection{% endblock %}
+{% block title %}Vision Edge AI{% endblock %}
 
 {% block head %}
   {{ super() }}
@@ -14,7 +14,10 @@
 {% endblock %}
 
 {% block content %}
+   
+
     <div class="main">
+        <h1 id="title">Vision Edge AI</h1>
         <div>
             <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid">   
         </div>
@@ -71,10 +74,15 @@
             </div>
         </div>
         
-        <!-- New div for CPU model information -->
+        <!-- Table for displaying the CPU model -->
         <div id="cpuInfo" class="mt-3">
-            <h6>CPU Model:</h6>
-            <p>{{ cpu_model }}</p>
+            <table class="table table-borderless">
+                <tr>
+                    <td><strong>CPU</strong></td>
+                    <td class="cpu-model">{{ cpu_model }}</td>
+                </tr>
+
+            </table>
         </div>
 
         <div id="uploadStatus" class="mt-3"></div> <!-- Display upload status -->
