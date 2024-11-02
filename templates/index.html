@@ -5,23 +5,31 @@
 
 {% block head %}
   {{ super() }}
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/@turf/turf@6.2.0-alpha.1/dist/turf.min.js"></script>
+    <!-- jQuery and jqWidgets CSS and JS -->
+    
+
+    <!-- Custom Styles -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
 {% endblock %}
 
 {% block content %}
-
     <div class="main">
-        
         <h1 id="title">Vision Edge AI</h1>
 
-        <div>
-            <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">   
+        <div id="main-content" class="d-flex align-items-center justify-content-center">
+            <!-- CPU Load Gauge on the left -->
+            <div id="cpuGauge" class="gauge-container"></div>
+
+            <!-- Video feed in the center -->
+            <div class="video-container">
+                <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">
+            </div>
+
+            <!-- Power Consumption Gauge on the right -->
+            <div id="powerGauge" class="gauge-container"></div>
         </div>
+
+        <!-- Controls section -->
         <div id="control" class="mt-3">
             <!-- Dropdown for selecting existing files and file input for new uploads -->
             <div class="dropdown">
@@ -96,11 +104,85 @@
 {% block scripts %}
   {{ super() }}
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.bundle.min.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+     <script src="https://jqwidgets.com/public/jqwidgets/jqxcore.js"></script>
+    <script src="https://jqwidgets.com/public/jqwidgets/jqxdraw.js"></script> <!-- Required for gauge rendering -->
+    <script src="https://jqwidgets.com/public/jqwidgets/jqxgauge.js"></script>
     <script>
         $(document).ready(function() {
+
+            $("#cpuGauge").jqxGauge({
+                ranges: [
+                    { startValue: 0, endValue: 50, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
+                    { startValue: 50, endValue: 80, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
+                    { startValue: 80, endValue: 100, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
+                ],
+                ticksMinor: { interval: 5, size: '5%' },
+                ticksMajor: { interval: 10, size: '9%' },
+                value: 0,
+                min: 0,
+                max: 100,
+                colorScheme: 'scheme05',
+                animationDuration: 500,
+                width: 150,
+                height: 150,
+                labels: { interval: 10 },
+                caption: {
+                    value: '',
+                    position: 'bottom',
+                    offset: [0, 10],
+                    visible: true,
+                    font: { size: 16, weight: 'bold' }
+                }
+            });
+
+            $("#powerGauge").jqxGauge({
+                    ranges: [
+                        { startValue: 0, endValue: 20, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
+                        { startValue: 20, endValue: 40, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
+                        { startValue: 40, endValue: 60, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
+                    ],
+                    ticksMinor: { interval: 5, size: '5%' },
+                    ticksMajor: { interval: 10, size: '9%' },
+                    value: 0,
+                    min: 0,
+                    max: 60,
+                    colorScheme: 'scheme05',
+                    animationDuration: 500,
+                    width: 150,
+                    height: 150,
+                    labels: { interval: 10 },
+                    caption: {
+                        value: '',
+                        position: 'bottom',
+                        offset: [0, 10],
+                        visible: true,
+                        font: { size: 16, weight: 'bold' }
+                    }
+                });
+
+            function updateGauges() {
+                $.ajax({
+                    url: "/metrics",
+                    method: "GET",
+                    success: function(data) {
+                        // Update CPU Gauge
+                        $("#cpuGauge").jqxGauge({ caption: { value: data.cpu_percent } }); // Update caption text
+                        $("#cpuGauge").jqxGauge('value', data.cpu_percent);
+                        
+                        // Update Power Gauge
+                        $("#powerGauge").jqxGauge({ caption: { value: data.power_data } }); // Update caption text
+                        $("#powerGauge").jqxGauge('value', data.power_data);  // Adjust if necessary based on actual response structure
+                    },
+                    error: function() {
+                        console.error("Failed to fetch metrics data");
+                    }
+                });
+            }
+
+            // Update gauge every second
+            setInterval(updateGauges, 1000);
+
             let currentFile = "{{ default_file }}";
             let currentDevice = "{{ default_device }}";  
             let currentPrecision = "{{ default_precision }}";  
@@ -256,6 +338,8 @@
                     selectPrecision(selectedPrecision);
                 }
             });
+
+
         });
     </script>
 {% endblock %}

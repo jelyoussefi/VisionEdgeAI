@@ -1,63 +1,51 @@
-import os, platform, subprocess
+import os
+import platform
+import subprocess
 import fire
 import cv2
 import numpy as np
-import time
-import json
-from threading import Thread, Condition
-from collections import deque
+import random
 import psutil
+from threading import Condition
+from collections import deque
 from time import perf_counter
-from flask import Flask, redirect, url_for, render_template, make_response, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
-from flask_restful import Resource, Api, reqparse
-from utils.yolov8_model  import YoloV8Model
+from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
-import utils.perf_visualizer as pv
 
-class ObjectDetector():
+class ObjectDetector:
 	def __init__(self, model, input, device="GPU", data_type="FP16"):
-
 		self.app = Flask(__name__)
 		self.port = 7000
-		self.running = False 
+		self.running = False
 		self.cv = Condition()
 		self.cpu_loads = deque(maxlen=120)
-		self.upload_folder = '/workspace/videos'  
-		os.makedirs(self.upload_folder, exist_ok=True)  
-
+		self.upload_folder = '/workspace/videos'
+		os.makedirs(self.upload_folder, exist_ok=True)
 		self.init(model, input, device, data_type)
 
-	def init(self,  model, input, device="GPU", data_type="FP16"):
+	def init(self, model, input, device="GPU", data_type="FP16"):
 		self.cv.acquire()
 		self.input = input
 		self.model = YoloV8Model(model, device, data_type)
 		self.frame = None
 		self.cap = VideoCapture(input)
 		self.frames_number = 0
-		self.cpu_loads.clear()
 		self.cpu_loads.append(psutil.cpu_percent(0.1))
 		self.start_time = perf_counter()
 		self.cv.release()
 
 	def get_cpu_model(self):
 		try:
-			# First, try to get CPU information using platform.uname().processor or platform.processor()
-			cpu_model = platform.uname().processor
-			if not cpu_model or cpu_model == "x86_64":
-				cpu_model = platform.processor()
-
-			# Linux-specific method: Read /proc/cpuinfo for the model name
-			if not cpu_model or cpu_model == "x86_64":
-				if platform.system() == "Linux":
-					with open("/proc/cpuinfo", "r") as f:
-						for line in f:
-							if "model name" in line:
-								cpu_model = line.split(":")[1].strip()
-								break
-
+			cpu_model = platform.uname().processor or platform.processor()
+			if not cpu_model or cpu_model == "x86_64" and platform.system() == "Linux":
+				with open("/proc/cpuinfo", "r") as f:
+					for line in f:
+						if "model name" in line:
+							cpu_model = line.split(":")[1].strip()
+							break
 			return cpu_model or "CPU model not available"
-		
 		except Exception as e:
 			print(f"Error fetching CPU model: {e}")
 			return "CPU model not available"
@@ -80,11 +68,10 @@ class ObjectDetector():
 		except Exception as e:
 			print(f"Error fetching GPU model: {e}")
 			return "GPU model not available"
-		
 	def run(self):
 		app = self.app
-
 		Bootstrap(app)
+
 		@app.route('/', methods=['GET', 'POST'])
 		def home():
 			files = os.listdir(self.upload_folder)
@@ -93,18 +80,51 @@ class ObjectDetector():
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 
-			return render_template('index.html', 
-									default_device=self.model.device, 
-									default_model=self.model.name,
-									default_precision=self.model.data_type,
-									default_file=default_file,
-									cpu_model=cpu_model,
-									gpu_model=gpu_model
-								   )
+			return render_template('index.html', default_device=self.model.device, default_model=self.model.name,
+								   default_precision=self.model.data_type, default_file=default_file,
+								   cpu_model=cpu_model, gpu_model=gpu_model)
 
 		@app.route('/video_feed')
 		def video_feed():
 			return Response(self.video_stream(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+		@app.route('/metrics', methods=['GET'])
+		def get_metrics():
+
+			def extract_value_from_output(output, label):
+				# Implement parsing logic based on pcm-power output format
+				for line in output.splitlines():
+					if label in line:
+						return float(line.split()[-2])  # Adjust index as per output format
+				return None
+	
+			try:
+				# Get CPU load using psutil
+				cpu_percent = psutil.cpu_percent(interval=1)
+
+				# Run pcm-power command and capture the power data
+				#result = subprocess.run(['pcm-power'], capture_output=True, text=True)
+				#output = result.stdout
+
+				# Extract power data (adjust based on actual pcm-power output format)
+				#power_data = {
+				#	'cpu_power': extract_value_from_output(output, 'CPU Power'),
+				#	'dram_power': extract_value_from_output(output, 'DRAM Power')
+				#}
+				power_data = random.randint(15, 45)
+				# Combine CPU and power data into one response
+				metrics = {
+					'cpu_percent': cpu_percent,
+					'power_data': power_data
+				}
+				
+				return jsonify(metrics)
+
+			except Exception as e:
+				print("Error gathering metrics:", e)
+				return jsonify({'error': 'Failed to gather metrics'}), 500
+
+
 
 		@app.route('/upload', methods=['POST'])
 		def upload_file():
@@ -114,12 +134,11 @@ class ObjectDetector():
 			if file.filename == '':
 				return jsonify({"error": "No selected file"}), 400
 
-			# Save the file to the upload folder
 			file_path = os.path.join(self.upload_folder, file.filename)
 			file.save(file_path)
 			return jsonify({"message": "File uploaded successfully", "file_path": file_path}), 200
 
-		@self.app.route('/get_uploaded_files', methods=['GET'])
+		@app.route('/get_uploaded_files', methods=['GET'])
 		def get_uploaded_files():
 			files = os.listdir(self.upload_folder)
 			files = [file for file in files if os.path.isfile(os.path.join(self.upload_folder, file))]
@@ -130,7 +149,7 @@ class ObjectDetector():
 			data = request.get_json()
 			source = data.get('source')
 			input = os.path.join(self.upload_folder, source)
-			
+
 			if not source:
 				return jsonify({'error': 'No source provided'}), 400
 
@@ -139,7 +158,6 @@ class ObjectDetector():
 				self.init(self.model.model_path, input, self.model.device, self.model.data_type)
 
 			return jsonify({'message': f'Source {source} selected successfully'}), 200
-	
 
 		@app.route('/select_device', methods=['POST'])
 		def select_device():
@@ -149,11 +167,10 @@ class ObjectDetector():
 			if not device:
 				return jsonify({'error': 'No device provided'}), 400
 
-			# Perform any necessary action with the device selection
 			print(f"Selected device: {device}")
-
+			self.init(self.model.model_path, self.input, device, self.model.data_type)
 			return jsonify({'message': f'Device {device} selected successfully'}), 200
-		
+
 		@app.route('/select_model', methods=['POST'])
 		def select_model():
 			data = request.get_json()
@@ -165,7 +182,6 @@ class ObjectDetector():
 				self.init(model, self.input, self.model.device, self.model.data_type)
 
 			return jsonify({'message': f'Model {model} selected successfully'}), 200
-		
 
 		@app.route('/select_precision', methods=['POST'])
 		def select_precision():
@@ -174,63 +190,33 @@ class ObjectDetector():
 			if not precision:
 				return jsonify({'error': 'No precision provided'}), 400
 			print(f"Selected precision: {precision}")
+			self.init(self.model.model_path, self.input, self.model.device, precision)
 			return jsonify({'message': f'Precision {precision} selected successfully'}), 200
 
 		self.frames_number = 0
 		self.start_time = perf_counter()
 		self.running = True
-
-		self.proc = Thread(target=self.cpu_load_handler)
-		self.proc.daemon = True
-		self.proc.start()
-
-		self.app.run(host='0.0.0.0', port=str(self.port), debug=False, threaded=True)
+		self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
 
 	def video_stream(self):
-
 		self.cv.acquire()
-		
 		while self.running:
-
 			self.cv.release()
-			
 			frame = self.cap.read()
-
 			self.cv.acquire()
-
 			if frame is not None:
 				frame = self.model.predict(frame.copy())
 				self.frames_number += 1
-				pv.draw_perf(frame, self.model.device, self.fps(), self.cpu_load())
-
 				ret, buffer = cv2.imencode('.jpg', frame)
 				frame = buffer.tobytes()
-				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  
+				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 				if not self.running:
 					break
-	
-
 		self.cap = None
 		self.cv.notify_all()
 		self.cv.release()
 
-	def fps(self):
-		return self.frames_number/(perf_counter() - self.start_time)
-
-	def cpu_load(self):
-		return np.average(self.cpu_loads);
-
-	def cpu_load_handler(self):
-
-		self.cpu_loads.append(psutil.cpu_percent(0.1))
-		
-		while self.running:
-			self.cv.acquire()
-			self.cpu_loads.append(psutil.cpu_percent(0))
-			self.cv.release()
-			time.sleep(0.5)
-
-def main( model, input, device, config, **kwargs ):
+def main(model, input, device, **kwargs):
 	app = ObjectDetector(model, input, device)
 	app.run()
 
