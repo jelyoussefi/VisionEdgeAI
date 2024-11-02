@@ -9,10 +9,11 @@ import torch
 
 cimport numpy as np
 from libc.stdint cimport (uint8_t, uint16_t, uint32_t, uint64_t,
-                          int8_t, int16_t, int32_t, int64_t)
+						  int8_t, int16_t, int32_t, int64_t)
 from libcpp cimport bool
 
 from pathlib import Path
+import shutil
 import cv2
 from PIL import Image
 from time import perf_counter
@@ -39,29 +40,28 @@ cdef class YoloV8ModelBase():
 		model = YOLO(model_path)
 		self.label_map = model.names
 
-		if device == "GPU":
+		model_name = os.path.basename(model_path).split('.')[0]
+		model_path = os.path.join("./models", data_type, model_name + ".xml")
+
+		if not os.path.isfile(model_path):
 			half=True if data_type=="FP16" else False
 			model.export(format="openvino", dynamic=False, half=half)
-			model_name = os.path.basename(model_path).split('.')[0]
-			model_dirname = os.path.dirname(model_path)
-			model_path = os.path.join(model_dirname, model_name+"_openvino_model", model_name+".xml")
+			dst_model_dir = os.path.dirname(model_path)
+			src_model_dir = os.path.join("./", model_name+"_openvino_model")
+			Path(dst_model_dir).mkdir(parents=True, exist_ok=True)
+			for src_file in Path(src_model_dir).iterdir():
+				if src_file.is_file():
+					shutil.copy2(src_file, Path(dst_model_dir) / src_file.name)
+			shutil.rmtree(src_model_dir)
 
-			self.core = Core()
-			self.ov_model = self.core.read_model(model_path)
-			self.input_layer_ir = self.ov_model.input(0)
-			self.input_height = self.input_layer_ir.shape[2]
-			self.input_width = self.input_layer_ir.shape[3]
-			self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
-			self.model = self.core.compile_model(self.ov_model, self.device.upper())
-			self.post_proc_device = dpctl.select_gpu_device()
-
-		else:
-			self.model = model.model
-			self.input_height = image_size
-			self.input_width = image_size
-			self.post_proc_device  = None
-			self.model.eval()
-			self.model.to(self.device)
+		self.core = Core()
+		self.ov_model = self.core.read_model(model_path)
+		self.input_layer_ir = self.ov_model.input(0)
+		self.input_height = self.input_layer_ir.shape[2]
+		self.input_width = self.input_layer_ir.shape[3]
+		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
+		self.model = self.core.compile_model(self.ov_model, self.device.upper())
+		self.post_proc_device = dpctl.select_gpu_device()
 
 		self.infer_times = []
 		self.num_masks = 32
@@ -223,7 +223,7 @@ cdef class YoloV8ModelBase():
 
 
 	cdef process_mask_output(self,  mask_predictions,  mask_output, 
-						      np.ndarray[float, ndim=2] boxes, np.ndarray[uint8_t, ndim=3] orig_img):
+							  np.ndarray[float, ndim=2] boxes, np.ndarray[uint8_t, ndim=3] orig_img):
 
 		if mask_predictions.shape[0] == 0:
 			return []
@@ -301,13 +301,13 @@ cdef class YoloV8ModelBase():
 			caption = f'{label} {int(score * 100)}%'
 			
 			(tw, th), _ = cv2.getTextSize(text=caption, fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-			                              fontScale=size, thickness=text_thickness)
+										  fontScale=size, thickness=text_thickness)
 			th = int(th * 1.2)
 
 			cv2.rectangle(mask_img, (x1, y1), (x1 + tw, y1 - th), color, -1)
 
 			cv2.putText(mask_img, caption, (x1, y1),
-			            cv2.FONT_HERSHEY_SIMPLEX, size, (255, 255, 255), text_thickness, cv2.LINE_AA)
+						cv2.FONT_HERSHEY_SIMPLEX, size, (255, 255, 255), text_thickness, cv2.LINE_AA)
 
 		return mask_img
 
