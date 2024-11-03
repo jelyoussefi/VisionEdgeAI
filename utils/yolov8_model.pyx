@@ -6,12 +6,10 @@ from collections import deque
 import cython
 import numpy as np
 import torch 
-
 cimport numpy as np
 from libc.stdint cimport (uint8_t, uint16_t, uint32_t, uint64_t,
 						  int8_t, int16_t, int32_t, int64_t)
 from libcpp cimport bool
-
 from pathlib import Path
 import shutil
 import cv2
@@ -20,34 +18,30 @@ from time import perf_counter
 import pathlib
 from ultralytics import YOLO
 from ultralytics.utils.plotting import colors
-
-
 import openvino.runtime as ov
 from openvino.runtime import Core, Model
 import dpctl
 import dpnp
 	
-
 np.import_array()
 
-
 cdef class YoloV8ModelBase():
-	def __init__(self, model_path, device, image_size=640, data_type="FP16"):
+	def __init__(self, model_path, device, data_type="FP16"):
 		self.device = device
 		self.data_type = data_type
 		self.model_path = model_path
 		self.name = os.path.splitext(os.path.basename(model_path))[0] 
 		model = YOLO(model_path)
 		self.label_map = model.names
-
 		model_name = os.path.basename(model_path).split('.')[0]
 		model_path = os.path.join("./models", data_type, model_name + ".xml")
 
 		if not os.path.isfile(model_path):
 			half=True if data_type=="FP16" else False
-			model.export(format="openvino", dynamic=False, half=half)
+			int8=True  if data_type=="INT8" else False
+			model.export(format="openvino", dynamic=False, half=half, int8=int8)
 			dst_model_dir = os.path.dirname(model_path)
-			src_model_dir = os.path.join("./", model_name+"_openvino_model")
+			src_model_dir = os.path.join("./", model_name+("_int8" if int8 else "") + "_openvino_model")
 			Path(dst_model_dir).mkdir(parents=True, exist_ok=True)
 			for src_file in Path(src_model_dir).iterdir():
 				if src_file.is_file():
@@ -330,8 +324,8 @@ cdef class YoloV8ModelBase():
 		return cv2.addWeighted(mask_img, mask_alpha, image, 1 - mask_alpha, 0)
 
 class YoloV8Model(YoloV8ModelBase):
-	def __init__(self, model_path, device, image_size=640):
-		super().__init__(model_path, device, image_size)
+	def __init__(self, model_path, device,data_type):
+		super().__init__(model_path, device, data_type)
 		
 
 	

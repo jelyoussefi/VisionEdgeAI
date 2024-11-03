@@ -210,12 +210,13 @@ class ObjectDetector:
 		@app.route('/select_precision', methods=['POST'])
 		def select_precision():
 			data = request.get_json()
-			precision = data.get('precision')
-			if not precision:
+			data_type = data.get('precision')
+			if not data_type:
 				return jsonify({'error': 'No precision provided'}), 400
-			print(f"Selected precision: {precision}")
-			self.init(self.model.model_path, self.input, self.model.device, precision)
-			return jsonify({'message': f'Precision {precision} selected successfully'}), 200
+			if data_type != self.model.data_type:
+				print(f"Selected precision: {data_type}")
+				self.init(self.model.model_path, self.input, self.model.device, data_type)
+			return jsonify({'message': f'Precision {data_type} selected successfully'}), 200
 
 		self.frames_number = 0
 		self.start_time = perf_counter()

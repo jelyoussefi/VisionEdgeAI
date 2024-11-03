@@ -18,9 +18,16 @@
         <h1 id="title">Vision Edge AI</h1>
 
         <div id="main-content" class="d-flex align-items-center justify-content-center">
-            <div class="gauge-container-left">
-                <div id="cpuGauge" class="gauge"></div>
-                <div id="fpsGauge" class="gauge"></div>
+            <div class="gauges-container">
+                <div class="gauge-container">
+                    <div id="cpuGauge" class="gauge"></div>
+                    <div class="gauge-label">CPU Usage</div> 
+                </div>
+
+                <div class="gauge-container">
+                    <div id="fpsGauge" class="gauge"></div>
+                    <div class="gauge-label">FPS</div> 
+                </div>
             </div>
             <!-- Video feed in the center -->
             <div class="video-container">
@@ -28,7 +35,18 @@
             </div>
 
             <!-- Power Consumption Gauge on the right -->
-            <div id="powerGauge" class="gauge-container"></div>
+            <div class="gauges-container">
+                <div class="gauge-container">
+                    <div id="powerGauge" class="gauge"></div>
+                    <div class="gauge-label">Power Consumption</div> 
+                </div>
+
+                <div class="gauge-container">
+                    <div id="inferFpsGauge" class="gauge"></div>
+                    <div class="gauge-label">Inference FPS</div> 
+                </div>
+            </div>
+
         </div>
 
         <!-- Controls section -->
@@ -194,6 +212,34 @@
 
             initialFpsCaptionConfig = $("#fpsGauge").jqxGauge('caption');
 
+            $("#inferFpsGauge").jqxGauge({
+                showRanges: false,
+                colorScheme: 'scheme05',
+                animationDuration: 500,
+                width: 100,
+                height: 100,
+                labels: { visible: false }, // Hide labels
+                ticksMinor: { visible: false }, // Remove minor ticks
+                ticksMajor: { visible: false}, // Remove major ticks
+                pointer: { visible: false },
+                cap: { visible: false },
+                border: {
+                    size: 6,              // Border thickness
+                    style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
+                    visible: true          // Make the border visible
+                },
+                caption: {
+                    value: '', // Initial caption value
+                    position: 'top', // Center the caption in the gauge
+                    offset: [0, -8], 
+                    visible: true,
+                    font: { size: 24, weight: 'bold' }
+                }
+            });
+
+            initialInferFpsCaptionConfig = $("#inferFpsGauge").jqxGauge('caption');
+
+
             function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
                 const updatedCaptionConfig = { ...initialCaptionConfig, value: `${value} ${unit}` };
                 $(id).jqxGauge({ caption: updatedCaptionConfig });
@@ -209,6 +255,7 @@
                         updateGaugeCaption("#cpuGauge", data.cpu_percent, '', initialCpuCaptionConfig);
                         updateGaugeCaption("#powerGauge", data.power_data, '', initialPowerCaptionConfig);
                         updateGaugeCaption("#fpsGauge", data.fps, '', initialFpsCaptionConfig);
+                        updateGaugeCaption("#inferFpsGauge", data.fps, '', initialInferFpsCaptionConfig);
                     },
                     error: function() {
                         console.error("Failed to fetch metrics data");
@@ -238,10 +285,8 @@
 
             // Function to select a source file with scaling effect
             function selectSource(source) {
-                // Apply scale-out effect on video
                 $('#source').removeClass('scale-in').addClass('scale-out');
 
-                // Delay for scale-out, then update source and scale back in
                 setTimeout(function() {
                     $('#fileDropdown').text(source);
                     $.ajax({
@@ -265,7 +310,7 @@
                             $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
                         }
                     });
-                }, 500); // Delay to match the CSS transition duration
+                }, 500); 
             }
 
             // Handle file selection from existing files
@@ -278,10 +323,8 @@
 
             // Model selection with scale effect on video
             function selectModel(model) {
-                // Add scale-out effect to video
                 $('#source').removeClass('scale-in').addClass('scale-out');
 
-                // Delay for scale-out, then update model and scale back in
                 setTimeout(function() {
                     $('#modelDropdown').text(model);
                     $.ajax({
@@ -305,47 +348,62 @@
                             $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
                         }
                     });
-                }, 500); // Delay matches the CSS transition duration
+                }, 500); 
             }
 
             function selectDevice(device) {
-                $('#deviceDropdown').text(device);
-                $.ajax({
-                    url: '/select_device',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ device: device }),
-                    success: function(response) {
-                        console.log('Device selected successfully:', response);
+                $('#source').removeClass('scale-in').addClass('scale-out');
 
-                        $(`.device-option[data-device="${currentDevice}"]`).show();
-                        $(`.device-option[data-device="${device}"]`).hide();
-                        currentDevice = device;
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error selecting device:', error);
-                    }
-                });
+                setTimeout(function() {
+                    $('#deviceDropdown').text(device);
+                    $.ajax({
+                        url: '/select_device',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ device: device }),
+                        success: function(response) {
+                            console.log('Device selected successfully:', response);
+
+                            $(`.device-option[data-device="${currentDevice}"]`).show();
+                            $(`.device-option[data-device="${device}"]`).hide();
+                            currentDevice = device;
+
+                            // Scale video back in after model selection
+                            $('#source').removeClass('scale-out').addClass('scale-in');
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error selecting device:', error);
+                        }
+                    });
+                }, 500); 
             }
 
             function selectPrecision(precision) {
-                $('#precisionDropdown').text(precision);
-                $.ajax({
-                    url: '/select_precision',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ precision: precision }),
-                    success: function(response) {
-                        console.log('Precision selected successfully:', response);
+                $('#source').removeClass('scale-in').addClass('scale-out');
 
-                        $(`.precision-option[data-precision="${currentPrecision}"]`).show();
-                        $(`.precision-option[data-precision="${precision}"]`).hide();
-                        currentPrecision = precision;
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error selecting precision:', error);
-                    }
-                });
+                setTimeout(function() {
+                    $('#precisionDropdown').text(precision);
+                    $.ajax({
+                        url: '/select_precision',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ precision: precision }),
+                        success: function(response) {
+                            console.log('Precision selected successfully:', response);
+
+                            $(`.precision-option[data-precision="${currentPrecision}"]`).show();
+                            $(`.precision-option[data-precision="${precision}"]`).hide();
+                            currentPrecision = precision;
+                            
+                            // Scale video back in after model selection
+                            $('#source').removeClass('scale-out').addClass('scale-in');
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error selecting precision:', error);
+                        }
+                    });
+                }, 500);
+
             }
 
             // Initial selection of model, device, and precision
