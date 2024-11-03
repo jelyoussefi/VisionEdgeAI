@@ -39,30 +39,44 @@ html, body {
     gap: 20px;
 }
 
-/* Gauge container styling */
-.gauge-container {
-    width: 250px;
+.gauge-container-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 250px; /* Set width according to gauge size */
+    gap: 20px; /* Space between CPU and FPS gauges */
+}
+
+.gauge {
+    width: 100%;
     height: 250px;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
 }
 
- #cpuGauge {
-    width: 100%;
-    height: 100%;
-}
 
 /* Style the caption text inside the gauge */
 .jqx-gauge-caption {
-    font-size: 16px !important; /* Increase font size */
+    font-size: 18px !important; /* Increase font size */
     font-weight: bold !important; /* Make text bold */
+}
+
+#fpsGauge .jqx-gauge-caption {
+    font-size: 28px !important; /* Larger font size */
+    font-weight: bold; /* Make the text bold */
+    color: #4CAF50; /* Green color to indicate good performance */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+    letter-spacing: 1px; /* Slightly increase letter spacing for readability */
+    transition: color 0.3s ease, transform 0.3s ease; /* Smooth transition for color and scale changes */
 }
 
 .jqx-gauge-label {
     font-size: 8px; /* Set desired font size */
 }
+
+
 
 /* Video container styling */
 .video-container {

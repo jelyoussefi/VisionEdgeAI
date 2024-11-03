@@ -13,6 +13,11 @@ from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
 from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
+import logging
+
+# Disable Flask's default request logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 class ObjectDetector:
 	def __init__(self, model, input, device="GPU", data_type="FP16"):
@@ -90,6 +95,25 @@ class ObjectDetector:
 
 		@app.route('/metrics', methods=['GET'])
 		def get_metrics():
+			try:
+				cpu_percent = psutil.cpu_percent(interval=None)
+				power_data = random.randint(15, 45)
+				fps =  int(self.fps())
+
+				metrics = {
+					'cpu_percent': cpu_percent,
+					'power_data': power_data,
+					'fps': fps
+				}
+				
+				return jsonify(metrics)
+			except Exception as e:
+				print("Error gathering metrics:", e)
+				return jsonify({'error': 'Failed to gather metrics'}), 500
+
+
+		@app.route('/metrics2', methods=['GET'])
+		def get_metrics2():
 
 			def extract_value_from_output(output, label):
 				# Implement parsing logic based on pcm-power output format
@@ -197,6 +221,9 @@ class ObjectDetector:
 		self.start_time = perf_counter()
 		self.running = True
 		self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
+
+	def fps(self):
+		return self.frames_number/(perf_counter() - self.start_time)
 
 	def video_stream(self):
 		self.cv.acquire()

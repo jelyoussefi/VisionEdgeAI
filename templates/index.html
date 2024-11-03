@@ -18,9 +18,10 @@
         <h1 id="title">Vision Edge AI</h1>
 
         <div id="main-content" class="d-flex align-items-center justify-content-center">
-            <!-- CPU Load Gauge on the left -->
-            <div id="cpuGauge" class="gauge-container"></div>
-
+            <div class="gauge-container-left">
+                <div id="cpuGauge" class="gauge"></div>
+                <div id="fpsGauge" class="gauge"></div>
+            </div>
             <!-- Video feed in the center -->
             <div class="video-container">
                 <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">
@@ -125,55 +126,89 @@
                 max: 100,
                 colorScheme: 'scheme05',
                 animationDuration: 500,
-                width: 150,
-                height: 150,
+                width: 130,
+                height: 130,
+                labels: { interval: 10 },
+                caption: {
+                    value: '',
+                    position: 'center',
+                    offset: [0, 0],
+                    visible: true,
+                    font: { size: 16, weight: 'bold' }
+                }
+            });
+            
+            initialCpuCaptionConfig = $("#cpuGauge").jqxGauge('caption');
+
+            $("#powerGauge").jqxGauge({
+                ranges: [
+                    { startValue: 0, endValue: 20, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
+                    { startValue: 20, endValue: 40, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
+                    { startValue: 40, endValue: 60, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
+                ],
+                ticksMinor: { interval: 5, size: '5%' },
+                ticksMajor: { interval: 10, size: '9%' },
+                value: 0,
+                min: 0,
+                max: 60,
+                colorScheme: 'scheme05',
+                animationDuration: 500,
+                width: 130,
+                height: 130,
                 labels: { interval: 10 },
                 caption: {
                     value: '',
                     position: 'bottom',
-                    offset: [0, 10],
+                    offset: [0, 0],
                     visible: true,
                     font: { size: 16, weight: 'bold' }
                 }
             });
 
-            $("#powerGauge").jqxGauge({
-                    ranges: [
-                        { startValue: 0, endValue: 20, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
-                        { startValue: 20, endValue: 40, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
-                        { startValue: 40, endValue: 60, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
-                    ],
-                    ticksMinor: { interval: 5, size: '5%' },
-                    ticksMajor: { interval: 10, size: '9%' },
-                    value: 0,
-                    min: 0,
-                    max: 60,
-                    colorScheme: 'scheme05',
-                    animationDuration: 500,
-                    width: 150,
-                    height: 150,
-                    labels: { interval: 10 },
-                    caption: {
-                        value: '',
-                        position: 'bottom',
-                        offset: [0, 10],
-                        visible: true,
-                        font: { size: 16, weight: 'bold' }
-                    }
-                });
+            initialPowerCaptionConfig = $("#powerGauge").jqxGauge('caption');
 
+            $("#fpsGauge").jqxGauge({
+                showRanges: false,
+                colorScheme: 'scheme05',
+                animationDuration: 500,
+                width: 100,
+                height: 100,
+                labels: { visible: false }, // Hide labels
+                ticksMinor: { visible: false }, // Remove minor ticks
+                ticksMajor: { visible: false}, // Remove major ticks
+                pointer: { visible: false },
+                cap: { visible: false },
+                border: {
+                    size: 6,              // Border thickness
+                    style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
+                    visible: true          // Make the border visible
+                },
+                caption: {
+                    value: '', // Initial caption value
+                    position: 'top', // Center the caption in the gauge
+                    offset: [0, -8], 
+                    visible: true,
+                    font: { size: 24, weight: 'bold' }
+                }
+            });
+
+            initialFpsCaptionConfig = $("#fpsGauge").jqxGauge('caption');
+
+            function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
+                const updatedCaptionConfig = { ...initialCaptionConfig, value: `${value} ${unit}` };
+                $(id).jqxGauge({ caption: updatedCaptionConfig });
+                $(id).jqxGauge('value', value);
+            }
+
+            // Function to fetch and update all gauges
             function updateGauges() {
                 $.ajax({
                     url: "/metrics",
                     method: "GET",
                     success: function(data) {
-                        // Update CPU Gauge
-                        $("#cpuGauge").jqxGauge({ caption: { value: data.cpu_percent } }); // Update caption text
-                        $("#cpuGauge").jqxGauge('value', data.cpu_percent);
-                        
-                        // Update Power Gauge
-                        $("#powerGauge").jqxGauge({ caption: { value: data.power_data } }); // Update caption text
-                        $("#powerGauge").jqxGauge('value', data.power_data);  // Adjust if necessary based on actual response structure
+                        updateGaugeCaption("#cpuGauge", data.cpu_percent, '', initialCpuCaptionConfig);
+                        updateGaugeCaption("#powerGauge", data.power_data, '', initialPowerCaptionConfig);
+                        updateGaugeCaption("#fpsGauge", data.fps, '', initialFpsCaptionConfig);
                     },
                     error: function() {
                         console.error("Failed to fetch metrics data");
