@@ -22,7 +22,7 @@ log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 class ObjectDetector:
 	def __init__(self, model, input, device="GPU", data_type="FP16"):
 		self.app = Flask(__name__)
-		self.port = 7000
+		self.port = 5000
 		self.running = False
 		self.cv = Condition()
 		self.cpu_loads = deque(maxlen=120)
