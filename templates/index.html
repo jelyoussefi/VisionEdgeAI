@@ -42,8 +42,8 @@
                 </div>
 
                 <div class="gauge-container">
-                    <div id="inferFpsGauge" class="gauge"></div>
-                    <div class="gauge-label">Inference FPS</div> 
+                    <div id="latencyGauge" class="gauge"></div>
+                    <div class="gauge-label">Latency (ms)</div> 
                 </div>
             </div>
 
@@ -212,7 +212,7 @@
 
             initialFpsCaptionConfig = $("#fpsGauge").jqxGauge('caption');
 
-            $("#inferFpsGauge").jqxGauge({
+            $("#latencyGauge").jqxGauge({
                 showRanges: false,
                 colorScheme: 'scheme05',
                 animationDuration: 500,
@@ -237,7 +237,7 @@
                 }
             });
 
-            initialInferFpsCaptionConfig = $("#inferFpsGauge").jqxGauge('caption');
+            initialLatencyCaptionConfig = $("#latencyGauge").jqxGauge('caption');
 
 
             function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
@@ -255,7 +255,7 @@
                         updateGaugeCaption("#cpuGauge", data.cpu_percent, '', initialCpuCaptionConfig);
                         updateGaugeCaption("#powerGauge", data.power_data, '', initialPowerCaptionConfig);
                         updateGaugeCaption("#fpsGauge", data.fps, '', initialFpsCaptionConfig);
-                        updateGaugeCaption("#inferFpsGauge", data.fps, '', initialInferFpsCaptionConfig);
+                        updateGaugeCaption("#latencyGauge", data.latency, '', initialLatencyCaptionConfig);
                     },
                     error: function() {
                         console.error("Failed to fetch metrics data");
@@ -394,7 +394,7 @@
                             $(`.precision-option[data-precision="${currentPrecision}"]`).show();
                             $(`.precision-option[data-precision="${precision}"]`).hide();
                             currentPrecision = precision;
-                            
+
                             // Scale video back in after model selection
                             $('#source').removeClass('scale-out').addClass('scale-in');
                         },

@@ -1,11 +1,7 @@
-import os
-import platform
-import subprocess
+import os, platform, queue, psutil, subprocess, random, logging
 import fire
 import cv2
 import numpy as np
-import random
-import psutil
 from threading import Condition
 from collections import deque
 from time import perf_counter
@@ -13,7 +9,6 @@ from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
 from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
-import logging
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
@@ -25,6 +20,7 @@ class ObjectDetector:
 		self.port = 5000
 		self.running = False
 		self.cv = Condition()
+		self.queue = queue.Queue(maxsize=0)  
 		self.cpu_loads = deque(maxlen=120)
 		self.upload_folder = '/workspace/videos'
 		os.makedirs(self.upload_folder, exist_ok=True)
@@ -33,13 +29,19 @@ class ObjectDetector:
 	def init(self, model, input, device="GPU", data_type="FP16"):
 		self.cv.acquire()
 		self.input = input
-		self.model = YoloV8Model(model, device, data_type)
+		self.model = YoloV8Model(model, device, data_type, self.callback_function)
 		self.frame = None
 		self.cap = VideoCapture(input)
 		self.frames_number = 0
 		self.cpu_loads.append(psutil.cpu_percent(0.1))
 		self.start_time = perf_counter()
 		self.cv.release()
+
+	def callback_function(self, frame):
+		#self.cv.acquire()
+		self.queue.put(frame)
+		#self.cv.notify_all()
+		#self.cv.release()
 
 	def get_cpu_model(self):
 		try:
@@ -99,11 +101,13 @@ class ObjectDetector:
 				cpu_percent = psutil.cpu_percent(interval=None)
 				power_data = random.randint(15, 45)
 				fps =  int(self.fps())
+				latency = int(self.model.latency())
 
 				metrics = {
 					'cpu_percent': cpu_percent,
 					'power_data': power_data,
-					'fps': fps
+					'fps': fps,
+					'latency': latency
 				}
 				
 				return jsonify(metrics)
@@ -233,13 +237,20 @@ class ObjectDetector:
 			frame = self.cap.read()
 			self.cv.acquire()
 			if frame is not None:
-				frame = self.model.predict(frame.copy())
-				self.frames_number += 1
-				ret, buffer = cv2.imencode('.jpg', frame)
-				frame = buffer.tobytes()
-				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-				if not self.running:
-					break
+				self.model.predict(frame.copy())
+
+			self.cv.release()
+			while not self.queue.empty():
+				frame = self.queue.get()
+				if frame is not None:
+					self.frames_number += 1
+					ret, buffer = cv2.imencode('.jpg', frame)
+					frame = buffer.tobytes()
+					yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+					if not self.running:
+						break
+			self.cv.acquire()
+
 		self.cap = None
 		self.cv.notify_all()
 		self.cv.release()

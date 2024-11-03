@@ -92,16 +92,8 @@ html, body {
     font-weight: bold !important; /* Make text bold */
 }
 
-#fpsGauge .jqx-gauge-caption {
-    font-size: 28px !important; /* Larger font size */
-    font-weight: bold;
-    color: #4CAF50;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    letter-spacing: 1px;
-    transition: color 0.3s ease, transform 0.3s ease;
-}
-
-#inferFpsGauge .jqx-gauge-caption {
+#fpsGauge .jqx-gauge-caption,
+#latencyGauge .jqx-gauge-caption {
     font-size: 28px !important; /* Larger font size */
     font-weight: bold;
     color: #4CAF50;

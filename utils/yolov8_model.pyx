@@ -3,6 +3,7 @@ import math
 import ctypes
 from typing import Tuple, Dict
 from collections import deque
+from threading import Condition
 import cython
 import numpy as np
 import torch 
@@ -19,20 +20,29 @@ import pathlib
 from ultralytics import YOLO
 from ultralytics.utils.plotting import colors
 import openvino.runtime as ov
-from openvino.runtime import Core, Model
+from openvino.runtime import Core, AsyncInferQueue
+import numpy as np
+
 import dpctl
 import dpnp
 	
 np.import_array()
 
 cdef class YoloV8ModelBase():
-	def __init__(self, model_path, device, data_type="FP16"):
+	def __init__(self, model_path, device, data_type="FP16", callback_function=None):
+
+		self.cv = Condition()
+
+		self.model_path = model_path
 		self.device = device
 		self.data_type = data_type
-		self.model_path = model_path
+		self.callback_function = callback_function
+		self.request_queue_size = 2
+
 		self.name = os.path.splitext(os.path.basename(model_path))[0] 
 		model = YOLO(model_path)
 		self.label_map = model.names
+
 		model_name = os.path.basename(model_path).split('.')[0]
 		model_path = os.path.join("./models", data_type, model_name + ".xml")
 
@@ -51,37 +61,47 @@ cdef class YoloV8ModelBase():
 		self.core = Core()
 		self.ov_model = self.core.read_model(model_path)
 		self.input_layer_ir = self.ov_model.input(0)
+		self.input_layer_name = self.input_layer_ir.get_any_name()
 		self.input_height = self.input_layer_ir.shape[2]
-		self.input_width = self.input_layer_ir.shape[3]
+		self.input_width = self.input_layer_ir.shape[3]		
 		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
 		self.model = self.core.compile_model(self.ov_model, self.device.upper())
 		self.post_proc_device = dpctl.select_gpu_device()
+		self.output_tensor = self.model.outputs[0]
 
-		self.infer_times = []
+		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
+		self.infer_queue.set_callback(self.ov_callback_function)
+
+		self.latencies = deque(maxlen=10)
 		self.num_masks = 32
 		self.conf_threshold = 0.5
 		self.iou_threshold = 0.2
 
 
+	def ov_callback_function(self, infer_request, userdata):
+		image, start_time = userdata
+
+		self.latencies.append((perf_counter() - start_time))
+
+		boxes = infer_request.results[self.output_tensor] 
+		masks = None 
+		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
+
+		image = self.draw_detections(image, boxes, scores, class_ids, 0.5, mask_maps=mask_maps)
+
+
+		if self.callback_function is not None:
+			self.callback_function(image)
+
 	def predict(self, image:np.ndarray):
 		resized_image = self.preprocess(image)
 		
 		start_time = perf_counter()
-		results = self.model(resized_image)
+		self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
 
-		self.infer_times.append((perf_counter() - start_time))
-		boxes = results[0]
-		
-		masks = None #results[1].numpy() if len(results) > 1 else None
-		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
-		
-		image = self.draw_detections(image, boxes, scores, class_ids, 0.5, mask_maps=mask_maps)
-
-		return image
-
-	def fps(self):
-		if len(self.infer_times) > 0:
-			return 1/np.average(self.infer_times);
+	def latency(self):
+		if len(self.latencies) > 0:
+			return 1000*np.mean(self.latencies)
 		else:
 			return 0
 
@@ -92,7 +112,7 @@ cdef class YoloV8ModelBase():
 		input_img = input_img.transpose(2, 0, 1)
 		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
 
-		return torch.tensor(input_tensor)
+		return input_tensor
 
 	def postprocess(self, pred_boxes, pred_masks, orig_img):
 		boxes, scores, class_ids, mask_pred = self.process_box_output(pred_boxes, orig_img)
@@ -324,8 +344,8 @@ cdef class YoloV8ModelBase():
 		return cv2.addWeighted(mask_img, mask_alpha, image, 1 - mask_alpha, 0)
 
 class YoloV8Model(YoloV8ModelBase):
-	def __init__(self, model_path, device,data_type):
-		super().__init__(model_path, device, data_type)
+	def __init__(self, model_path, device, data_type, callback_function):
+		super().__init__(model_path, device, data_type, callback_function)
 		
 
 	
