@@ -71,16 +71,13 @@ cdef class YoloV8ModelBase():
 
 	def predict(self, image:np.ndarray):
 		resized_image = self.preprocess(image)
-		if self.device != "GPU":
-			resized_image = resized_image.to(self.device)
-
+		
 		start_time = perf_counter()
 		results = self.model(resized_image)
 
 		self.infer_times.append((perf_counter() - start_time))
 		boxes = results[0]
-		if self.device != "GPU":
-			boxes = boxes.cpu().numpy()
+		
 		masks = None #results[1].numpy() if len(results) > 1 else None
 		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
 		
