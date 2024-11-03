@@ -42,15 +42,16 @@ build:
 
 run: build
 	@$(call msg, Running the yolov8 demo ...)
-	@docker run ${DOCKER_RUN_PARAMS} bash -c 'python3 ./app.py  \
-				--model ${MODEL} \
-				--input ${INPUT} \
-				--device ${DEVICE} \
-				--config ./configs/config.js '
+	@docker run ${DOCKER_RUN_PARAMS} bash -c '\
+				python3 ./app.py  \
+					--model ${MODEL} \
+					--input ${INPUT} \
+					--device ${DEVICE} \
+					--config ./configs/config.js '
 				
 bash: build
-	@xhost +
-	@docker run ${DOCKER_RUN_PARAMS} bash -c 'source /opt/intel/oneapi/setvars.sh --force && bash'
+	@docker run ${DOCKER_RUN_PARAMS} bash 
+	
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions
 #----------------------------------------------------------------------------------------------------------------------
