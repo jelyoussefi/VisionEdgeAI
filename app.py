@@ -2,6 +2,8 @@ import os, platform, queue, psutil, subprocess, random, logging
 import fire
 import cv2
 import numpy as np
+import csv
+import io
 from threading import Condition
 from collections import deque
 from time import perf_counter
@@ -75,6 +77,72 @@ class ObjectDetector:
 		except Exception as e:
 			print(f"Error fetching GPU model: {e}")
 			return "GPU model not available"
+
+	def get_power_consumption(self):
+
+		proc_energy = None
+		
+		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
+
+		try:
+			result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+			output = result.stdout
+
+			csv_reader = csv.reader(io.StringIO(output))
+			next(csv_reader, None)
+
+			header_row = next(csv_reader, None)
+
+			if header_row:
+				try:
+					proc_energy_index = header_row.index("Proc Energy (Joules)")
+				except ValueError:
+					proc_energy_index = None
+
+			# Read the data row with actual values
+			data_row = next(csv_reader, None)
+			if data_row and proc_energy_index is not None:
+				proc_energy = float(data_row[proc_energy_index])
+				
+		except Exception as e:
+			pass
+
+		return proc_energy
+
+
+	def get_power_consumption_all(self):
+		
+		total_energy = None
+		try:
+			result = subprocess.run(command = ['pcm', '/csv', '0.5', '1', '-nc', '-i=1', '-ns'], 
+									capture_output=True, text=True, timeout=60)
+			output = result.stdout
+			print(output)
+			csv_reader = csv.reader(io.StringIO(output))
+			next(csv_reader, None)
+			header_row = next(csv_reader, None)
+
+			if header_row:
+				try:
+					proc_energy_index = header_row.index("Proc Energy (Joules)")
+					#power_plane0_energy_index = header_row.index("Power Plane 0 Energy (Joules)")
+					#power_plane1_energy_index = header_row.index("Power Plane 1 Energy (Joules)")
+				except ValueError:
+					proc_energy_index = power_plane0_energy_index = power_plane1_energy_index = None
+
+			data_row = next(csv_reader, None)
+			if data_row and proc_energy_index is not None:
+				proc_energy = float(data_row[proc_energy_index])
+				power_plane0_energy = 0; #float(data_row[power_plane0_energy_index])
+				power_plane1_energy = 0; #float(data_row[power_plane1_energy_index])
+				total_energy = proc_energy + power_plane0_energy + power_plane1_energy
+		
+
+		except Exception as e:
+			pass
+
+		return total_energy
+
 	def run(self):
 		app = self.app
 		Bootstrap(app)
@@ -99,7 +167,7 @@ class ObjectDetector:
 		def get_metrics():
 			try:
 				cpu_percent = psutil.cpu_percent(interval=None)
-				power_data = random.randint(15, 45)
+				power_data = self.get_power_consumption()
 				fps =  int(self.fps())
 				latency = int(self.model.latency())
 
@@ -114,45 +182,6 @@ class ObjectDetector:
 			except Exception as e:
 				print("Error gathering metrics:", e)
 				return jsonify({'error': 'Failed to gather metrics'}), 500
-
-
-		@app.route('/metrics2', methods=['GET'])
-		def get_metrics2():
-
-			def extract_value_from_output(output, label):
-				# Implement parsing logic based on pcm-power output format
-				for line in output.splitlines():
-					if label in line:
-						return float(line.split()[-2])  # Adjust index as per output format
-				return None
-	
-			try:
-				# Get CPU load using psutil
-				cpu_percent = psutil.cpu_percent(interval=1)
-
-				# Run pcm-power command and capture the power data
-				#result = subprocess.run(['pcm-power'], capture_output=True, text=True)
-				#output = result.stdout
-
-				# Extract power data (adjust based on actual pcm-power output format)
-				#power_data = {
-				#	'cpu_power': extract_value_from_output(output, 'CPU Power'),
-				#	'dram_power': extract_value_from_output(output, 'DRAM Power')
-				#}
-				power_data = random.randint(15, 45)
-				# Combine CPU and power data into one response
-				metrics = {
-					'cpu_percent': cpu_percent,
-					'power_data': power_data
-				}
-				
-				return jsonify(metrics)
-
-			except Exception as e:
-				print("Error gathering metrics:", e)
-				return jsonify({'error': 'Failed to gather metrics'}), 500
-
-
 
 		@app.route('/upload', methods=['POST'])
 		def upload_file():

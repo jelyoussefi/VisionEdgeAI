@@ -14,5 +14,6 @@ RUN	pip3 install dpctl dpnp nncf
 RUN pip3 install Flask Flask-RESTful Flask-Bootstrap
 RUN pip3 install  fire psutil cython ultralytics pyrealsense2
 
+RUN apt install -y pcm
 ENV LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 

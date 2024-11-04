@@ -19,11 +19,12 @@ MODEL_NAME ?= yolov8${MODEL_SIZE}.pt
 
 
 DOCKER_RUN_PARAMS= \
-	-it --rm -a stdout -a stderr -e DISPLAY=${DISPLAY} -e NO_AT_BRIDGE=1   \
-	--privileged -v /dev:/dev \
+	-it --rm -a stdout -a stderr   \
+	--rm --privileged --pid=host --cap-add=ALL \
+    -v /dev/cpu:/dev/cpu \
+    -v /sys/devices/system:/sys/devices/system \
 	-p 5000:5000 \
 	-v ${CURRENT_DIR}:/workspace \
-	-v /tmp/.X11-unix:/tmp/.X11-unix  -v ${HOME}/.Xauthority:/home/root/.Xauthority \
 	-w /workspace \
 	 ${DOCKER_IMAGE_NAME}
 
