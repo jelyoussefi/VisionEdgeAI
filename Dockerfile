@@ -1,9 +1,10 @@
-FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
+FROM intel/oneapi
 
 ARG DEBIAN_FRONTEND=noninteractive
 USER root
 
-RUN apt  update  -y --allow-insecure-repositories
+RUN apt  update  -y 
+RUN apt  upgrade  -y 
 
 RUN apt install -y  build-essential wget gpg \
 					python3-pip python3-dev python3-opencv \
@@ -16,5 +17,6 @@ RUN pip3 install --pre -U openvino --extra-index-url https://storage.openvinotoo
 RUN	pip3 install dpctl dpnp nncf
 
 RUN pip3 install  fire psutil cython ultralytics pyrealsense2
+
 
 
