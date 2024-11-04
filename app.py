@@ -13,8 +13,8 @@ from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
 
 # Disable Flask's default request logging
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
+##log = logging.getLogger('werkzeug')
+#log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 class ObjectDetector:
 	def __init__(self):

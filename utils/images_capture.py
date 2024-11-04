@@ -5,7 +5,6 @@ from pathlib import Path
 import copy
 import cv2
 import numpy as np
-import pyrealsense2.pyrealsense2 as rs
 
 
 class InvalidInput(Exception):
@@ -130,52 +129,6 @@ class VideoCapWrapper(ImagesCapture):
     def get_type(self):
         return 'VIDEO'
 
-class RealSenseCapWrapper(ImagesCapture):
-    def __init__(self, input, camera_resolution):
-        
-        status = False
-        if input.isnumeric():
-            self.id = int(input)
-            self.ctx = rs.context()
-            if len(self.ctx.devices) > 0 and len(self.ctx.devices) > self.id:
-                self.pipeline = rs.pipeline()
-                self.id = int(input)
-                self.device = self.ctx.devices[self.id]
-                sensor_sn = self.device.get_info(rs.camera_info.serial_number)
-                self.config = rs.config()
-                self.config.enable_device(sensor_sn)
-                self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-                self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-                self.pipeline.start(self.config)
-                self.depth_frame = None
-                status = True
-        
-        if not status:
-            raise InvalidInput("Can't find the RS camera {}".format(input))
-
-    def read(self):
-        frames = self.pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        self.depth_frame = frames.get_depth_frame()
-
-        if  color_frame:        
-            color_frame = np.asanyarray(color_frame.get_data())
-       
-        return color_frame
-
-    def get_distance(self, x, y):
-        if self.depth_frame is not None:
-            dist = self.depth_frame.get_distance(int(x), int(y));
-            return dist
-
-        return None
-
-    def fps(self):
-        return 0
-
-    def get_type(self):
-        return 'CAMERA RS'
-
 class CameraCapWrapper(ImagesCapture):
 
     def __init__(self, input, camera_resolution):
@@ -231,7 +184,7 @@ class VideoCapture():
             self.input_index = (self.input_index+1) % self.nb_inputs
             input = self.inputs[self.input_index]
         
-            for reader in (ImreadWrapper, DirReader, RealSenseCapWrapper, VideoCapWrapper):
+            for reader in (ImreadWrapper, DirReader, VideoCapWrapper):
                 try:
                     self.reader = reader(input, self.loop)
                     if self.reader is not None:
