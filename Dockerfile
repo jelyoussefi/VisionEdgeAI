@@ -33,4 +33,11 @@ RUN echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg]
 RUN apt update -y 
 RUN apt install -y libze1 intel-level-zero-gpu intel-opencl-icd clinfo
 
+WORKDIR /tmp
+RUN wget https://github.com/intel/linux-npu-driver/releases/download/v1.8.0/intel-driver-compiler-npu_1.8.0.20240916-10885588273_ubuntu24.04_amd64.deb
+RUN wget https://github.com/intel/linux-npu-driver/releases/download/v1.8.0/intel-fw-npu_1.8.0.20240916-10885588273_ubuntu24.04_amd64.deb
+RUN wget https://github.com/intel/linux-npu-driver/releases/download/v1.8.0/intel-level-zero-npu_1.8.0.20240916-10885588273_ubuntu24.04_amd64.deb
+RUN dpkg -i *.deb
+RUN rm *.deb
+
 ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}
