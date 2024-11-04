@@ -13,8 +13,8 @@ from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
 
 # Disable Flask's default request logging
-##log = logging.getLogger('werkzeug')
-#log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 class ObjectDetector:
 	def __init__(self):
@@ -24,6 +24,8 @@ class ObjectDetector:
 		self.cv = Condition()
 		self.queue = queue.Queue(maxsize=0)  
 		self.upload_folder = '/workspace/videos'
+		self.frames_number = 0
+		self.start_time = perf_counter()
 		os.makedirs(self.upload_folder, exist_ok=True)
 		self.model = self.model_path = self.device = self.input = self.data_type = self.cap = None
 
@@ -139,7 +141,7 @@ class ObjectDetector:
 		def get_metrics():
 			try:
 				cpu_percent = psutil.cpu_percent(interval=None)
-				power_data = self.get_power_consumption()
+				power_data = 10 #self.get_power_consumption()
 				fps =  int(self.fps())
 				latency = 0
 				if self.model is not None:
