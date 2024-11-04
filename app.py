@@ -1,4 +1,4 @@
-import os, platform, queue, psutil, subprocess, random, logging
+import os, time, platform, queue, psutil, subprocess, random, logging
 import fire
 import cv2
 import numpy as np
@@ -17,25 +17,30 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 class ObjectDetector:
-	def __init__(self, model, input, device="GPU", data_type="FP16"):
+	def __init__(self):
 		self.app = Flask(__name__)
 		self.port = 5000
 		self.running = False
 		self.cv = Condition()
 		self.queue = queue.Queue(maxsize=0)  
-		self.cpu_loads = deque(maxlen=120)
 		self.upload_folder = '/workspace/videos'
 		os.makedirs(self.upload_folder, exist_ok=True)
-		self.init(model, input, device, data_type)
+		self.model = self.model_path = self.device = self.input = self.data_type = self.cap = None
 
-	def init(self, model, input, device="GPU", data_type="FP16"):
+	def init(self, model_path, input, device="GPU", data_type="FP16"):
 		self.cv.acquire()
-		self.input = input
-		self.model = YoloV8Model(model, device, data_type, self.callback_function)
+
+		if (model_path != self.model_path) or (device != self.device) or (data_type != self.data_type):
+			self.model_path = model_path
+			self.device = device
+			self.data_type = data_type
+			if model_path is not None and device is not None and data_type is not None:
+				self.model = YoloV8Model(model_path, device, data_type, self.callback_function)
 		self.frame = None
-		self.cap = VideoCapture(input)
+		if input != self.input:
+			self.input = input
+			self.cap = VideoCapture(input)
 		self.frames_number = 0
-		self.cpu_loads.append(psutil.cpu_percent(0.1))
 		self.start_time = perf_counter()
 		self.cv.release()
 
@@ -81,7 +86,7 @@ class ObjectDetector:
 	def get_power_consumption(self):
 
 		proc_energy = None
-		
+
 		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
 
 		try:
@@ -110,39 +115,6 @@ class ObjectDetector:
 		return proc_energy
 
 
-	def get_power_consumption_all(self):
-		
-		total_energy = None
-		try:
-			result = subprocess.run(command = ['pcm', '/csv', '0.5', '1', '-nc', '-i=1', '-ns'], 
-									capture_output=True, text=True, timeout=60)
-			output = result.stdout
-			print(output)
-			csv_reader = csv.reader(io.StringIO(output))
-			next(csv_reader, None)
-			header_row = next(csv_reader, None)
-
-			if header_row:
-				try:
-					proc_energy_index = header_row.index("Proc Energy (Joules)")
-					#power_plane0_energy_index = header_row.index("Power Plane 0 Energy (Joules)")
-					#power_plane1_energy_index = header_row.index("Power Plane 1 Energy (Joules)")
-				except ValueError:
-					proc_energy_index = power_plane0_energy_index = power_plane1_energy_index = None
-
-			data_row = next(csv_reader, None)
-			if data_row and proc_energy_index is not None:
-				proc_energy = float(data_row[proc_energy_index])
-				power_plane0_energy = 0; #float(data_row[power_plane0_energy_index])
-				power_plane1_energy = 0; #float(data_row[power_plane1_energy_index])
-				total_energy = proc_energy + power_plane0_energy + power_plane1_energy
-		
-
-		except Exception as e:
-			pass
-
-		return total_energy
-
 	def run(self):
 		app = self.app
 		Bootstrap(app)
@@ -155,8 +127,8 @@ class ObjectDetector:
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 
-			return render_template('index.html', default_device=self.model.device, default_model=self.model.name,
-								   default_precision=self.model.data_type, default_file=default_file,
+			return render_template('index.html', default_device="GPU", default_model="yolov8n",
+								   default_precision="FP16", default_file=default_file,
 								   cpu_model=cpu_model, gpu_model=gpu_model)
 
 		@app.route('/video_feed')
@@ -169,7 +141,9 @@ class ObjectDetector:
 				cpu_percent = psutil.cpu_percent(interval=None)
 				power_data = self.get_power_consumption()
 				fps =  int(self.fps())
-				latency = int(self.model.latency())
+				latency = 0
+				if self.model is not None:
+					latency = int(self.model.latency())
 
 				metrics = {
 					'cpu_percent': cpu_percent,
@@ -210,9 +184,7 @@ class ObjectDetector:
 			if not source:
 				return jsonify({'error': 'No source provided'}), 400
 
-			if input != self.input:
-				print(f"Selected source: {input}")
-				self.init(self.model.model_path, input, self.model.device, self.model.data_type)
+			self.init(self.model_path, input, self.device, self.data_type)
 
 			return jsonify({'message': f'Source {source} selected successfully'}), 200
 
@@ -224,8 +196,8 @@ class ObjectDetector:
 			if not device:
 				return jsonify({'error': 'No device provided'}), 400
 
-			print(f"Selected device: {device}")
-			self.init(self.model.model_path, self.input, device, self.model.data_type)
+			self.init(self.model_path, self.input, device, self.data_type)
+
 			return jsonify({'message': f'Device {device} selected successfully'}), 200
 
 		@app.route('/select_model', methods=['POST'])
@@ -234,9 +206,8 @@ class ObjectDetector:
 			model = data.get('model')
 			if not model:
 				return jsonify({'error': 'No model provided'}), 400
-			if model != self.model.name:
-				print(f"Selected model: {model}")
-				self.init(model, self.input, self.model.device, self.model.data_type)
+			
+			self.init(model, self.input, self.device, self.data_type)
 
 			return jsonify({'message': f'Model {model} selected successfully'}), 200
 
@@ -246,9 +217,9 @@ class ObjectDetector:
 			data_type = data.get('precision')
 			if not data_type:
 				return jsonify({'error': 'No precision provided'}), 400
-			if data_type != self.model.data_type:
-				print(f"Selected precision: {data_type}")
-				self.init(self.model.model_path, self.input, self.model.device, data_type)
+			
+			self.init(self.model_path, self.input, self.device, data_type)
+			
 			return jsonify({'message': f'Precision {data_type} selected successfully'}), 200
 
 		self.frames_number = 0
@@ -260,12 +231,16 @@ class ObjectDetector:
 		return self.frames_number/(perf_counter() - self.start_time)
 
 	def video_stream(self):
+
+		while self.cap is None:
+			time.sleep(0.2)
+
 		self.cv.acquire()
 		while self.running:
 			self.cv.release()
 			frame = self.cap.read()
 			self.cv.acquire()
-			if frame is not None:
+			if self.model and frame is not None:
 				self.model.predict(frame.copy())
 
 			self.cv.release()
@@ -284,8 +259,8 @@ class ObjectDetector:
 		self.cv.notify_all()
 		self.cv.release()
 
-def main(model, input, device, **kwargs):
-	app = ObjectDetector(model, input, device)
+def main():
+	app = ObjectDetector()
 	app.run()
 
 if __name__ == "__main__":

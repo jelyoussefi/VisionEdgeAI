@@ -40,13 +40,13 @@ cdef class YoloV8ModelBase():
 		self.request_queue_size = 2
 
 		self.name = os.path.splitext(os.path.basename(model_path))[0] 
-		model = YOLO(model_path)
-		self.label_map = model.names
 
 		model_name = os.path.basename(model_path).split('.')[0]
 		model_path = os.path.join("./models", data_type, model_name + ".xml")
-
+		labels_file = os.path.join("./models", data_type, model_name + "_labels.txt")
+		
 		if not os.path.isfile(model_path):
+			model = YOLO(self.model_path)
 			half=True if data_type=="FP16" else False
 			int8=True  if data_type=="INT8" else False
 			model.export(format="openvino", dynamic=False, half=half, int8=int8)
@@ -57,6 +57,13 @@ cdef class YoloV8ModelBase():
 				if src_file.is_file():
 					shutil.copy2(src_file, Path(dst_model_dir) / src_file.name)
 			shutil.rmtree(src_model_dir)
+
+			with open(labels_file, "w") as label_file:
+				for index, label in enumerate(model.names.values()):
+					label_file.write(f"{label}\n")
+
+		with open(labels_file, "r") as file:
+			self.labels = [line.strip() for line in file]
 
 		self.core = Core()
 		self.ov_model = self.core.read_model(model_path)
@@ -300,7 +307,7 @@ cdef class YoloV8ModelBase():
 
 		# Draw bounding boxes and labels of detections
 		for box, score, class_id in zip(boxes, scores, class_ids):
-			label = self.label_map[class_id]
+			label = self.labels[class_id]
 				
 			color = colors(class_id)
 
