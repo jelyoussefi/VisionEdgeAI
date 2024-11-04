@@ -23,8 +23,7 @@ import openvino.runtime as ov
 from openvino.runtime import Core, AsyncInferQueue
 import numpy as np
 
-import dpctl
-import dpnp
+#import dpctl
 	
 np.import_array()
 
@@ -73,7 +72,7 @@ cdef class YoloV8ModelBase():
 		self.input_width = self.input_layer_ir.shape[3]		
 		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
 		self.model = self.core.compile_model(self.ov_model, self.device.upper())
-		self.post_proc_device = dpctl.select_gpu_device()
+		self.post_proc_device = None #dpctl.select_gpu_device()
 		self.output_tensor = self.model.outputs[0]
 
 		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
@@ -256,6 +255,7 @@ cdef class YoloV8ModelBase():
 		num_mask, mask_height, mask_width = (<object>mask_output_).shape  # CHW
 		mask_output = mask_output.reshape((num_mask, -1))
 		if self.post_proc_device is not None:
+			import dpnp
 			mask_predictions = dpnp.array(mask_predictions, device=self.post_proc_device)
 			mask_output =  dpnp.array(mask_output, device=self.post_proc_device)
 		
@@ -291,7 +291,11 @@ cdef class YoloV8ModelBase():
 		return mask_maps
 
 	def sigmoid(self, x):
-		return 1 / (1 + dpnp.exp(-x))
+		if self.post_proc_device is not None:
+			import dpnp
+			return 1 / (1 + dpnp.exp(-x))
+		else:
+			return 1 / (1 + math.exp(-x))
 
 	
 

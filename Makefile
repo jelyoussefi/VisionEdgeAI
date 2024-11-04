@@ -32,6 +32,7 @@ DOCKER_RUN_PARAMS= \
 	-e http_proxy=${HTTP_PROXY} \
 	-e https_proxy=${HTTPS_PROXY} \
 	-e no_proxy=${NO_PROXY} \
+	-e MKL_THREADING_LAYER=gnu \
 	${DOCKER_IMAGE_NAME}
 
 #----------------------------------------------------------------------------------------------------------------------
@@ -51,7 +52,7 @@ build:
 
 run: build
 	@$(call msg, Running the yolov8 demo ...)
-	@docker run ${DOCKER_RUN_PARAMS} bash -c '\
+	@docker run ${DOCKER_RUN_PARAMS} bash -c ' \
 				python3 ./app.py '
 
 bash: build
