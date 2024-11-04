@@ -1,96 +1,87 @@
-import os, argparse
-from pathlib import Path
-from typing import Tuple, Dict
-import random
+import os
 from collections import deque
+from threading import Condition
 import cv2
 import numpy as np
 from time import perf_counter
-import pathlib
-import openvino.runtime as ov
-from openvino.runtime import Core, Model, AsyncInferQueue
+from openvino.runtime import Core, AsyncInferQueue
 
 
 class Model():
-	def __init__(self, model_path, device, image_size=640):
+	def __init__(self, model_path, device, data_type, preprocess, call_back):
 		
+		self.cv = Condition()
+		self.model_path = model_path
 		self.device = device
+		self.data_type = data_type
+		self.callback_function = call_back
+		self.request_queue_size = 2
+		self.latencies = deque(maxlen=10)
+		if preprocess is not None:
+			self.preprocess = preprocess
 
 		self.core = Core()
+		
+		if model_path is not None:
+			self.init(model_path)
+
+	def init(self, model_path):
+
+		self.model_path = model_path
 		self.ov_model = self.core.read_model(model_path)
-		#if device != "CPU":
-		#	self.ov_model.reshape({0: [1, 3, image_size, image_size]})
-
-		self.compiled_model = self.core.compile_model(self.ov_model, device)
-
 		self.input_layer_ir = self.ov_model.input(0)
+		self.input_layer_name = self.input_layer_ir.get_any_name()
+		self.input_height = self.input_layer_ir.shape[2]
+		self.input_width = self.input_layer_ir.shape[3]		
+		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
+		self.model = self.core.compile_model(self.ov_model, self.device.upper())
+		self.output_tensor = self.model.outputs[0]
 
-		self.infer_queue = AsyncInferQueue(self.compiled_model,2)
+		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
 		self.infer_queue.set_callback(self.callback)
-
-		self.infer_request = self.compiled_model.create_infer_request()
-
-		self.infer_times = []
-		self.outputs = deque()
-
-		self.async_mod = False
+		self.frames_number = 0
+		self.start_time = None
 
 
-	def infer(self, image:np.ndarray):
+	def predict(self, image:np.ndarray):
 
-		_,_,h,w = self.input_layer_ir.shape
-		resized_image = self.preprocess(image, w, h)
+		self.cv.acquire()
 
+		if 	self.frames_number == 0:
+			self.start_time = perf_counter()
+
+		self.frames_number += 1
+
+		self.cv.release()
+
+		resized_image = self.preprocess(image)
+		
 		start_time = perf_counter()
-		if self.async_mod:
-			self.infer_queue.start_async({self.input_layer_ir.any_name:  resized_image}, (image, resized_image, start_time))
-		else:
-			self.infer_request.set_tensor(self.input_layer_ir, ov.Tensor(resized_image))
-			self.infer_request.infer()
-			self.callback(self.infer_request, (image, resized_image, start_time))
+		self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
 
-	def async_mode(self,flag):
-		self.async_mod = flag
-		self.infer_times = []
 
-	def result(self):
-		image = None
-		try:
-			outputs = self.outputs.pop()
-			image = self.postprocess(outputs)
-		except IndexError:
-			pass
+	def callback(self, infer_request, userdata):
+		image, start_time = userdata
 
-		return image
+		self.latencies.append((perf_counter() - start_time))
+
+		result = infer_request.results[self.output_tensor] 
+
+		if self.callback_function is not None:
+			self.callback_function(result, image)			
 
 	def fps(self):
-		if len(self.infer_times) > 0:
-			return 1/np.average(self.infer_times);
+		return self.frames_number/(perf_counter() - self.start_time) if self.start_time is not None else 0
+
+
+	def latency(self):
+		if len(self.latencies) > 0:
+			return 1000*np.mean(self.latencies)
 		else:
 			return 0
 
-	def callback(self, infer_request, info) -> None:
-
-		outputs = infer_request.results
-		image, resized_image, start_time = info
-
-		infer_time = (perf_counter() - start_time)	
-		self.infer_times.append(infer_time)
-
-		self.put(infer_request, image, resized_image)
-		
-
-	def put(self, infer_request, image, resized_image):
-		return False
-
-	def preprocess(self, image, width, height):
-	
+	def preprocess(self, image):
 		return None
-
-
-	def postprocess(self, outputs, threshold=0.5):
-
-		return NOne
 
 
 	

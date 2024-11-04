@@ -22,9 +22,8 @@ class ObjectDetector:
 		self.port = 5000
 		self.running = False
 		self.cv = Condition()
-		self.queue = queue.Queue(maxsize=0)  
+		self.queue = queue.Queue(maxsize=4)  
 		self.upload_folder = '/workspace/videos'
-		self.frames_number = 0
 		self.start_time = perf_counter()
 		os.makedirs(self.upload_folder, exist_ok=True)
 		self.model = self.model_path = self.device = self.input = self.data_type = self.cap = None
@@ -42,8 +41,6 @@ class ObjectDetector:
 		if input != self.input:
 			self.input = input
 			self.cap = VideoCapture(input)
-		self.frames_number = 0
-		self.start_time = perf_counter()
 		self.cv.release()
 
 	def callback_function(self, frame):
@@ -87,35 +84,45 @@ class ObjectDetector:
 
 	def get_power_consumption(self):
 
-		proc_energy = None
+		total_energy = -1
 
 		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
-
+		
 		try:
 			result = subprocess.run(command, capture_output=True, text=True, timeout=60)
 			output = result.stdout
 
+			# Parse the CSV output
 			csv_reader = csv.reader(io.StringIO(output))
-			next(csv_reader, None)
+			next(csv_reader, None)  # Skip the first line if it's a header
 
 			header_row = next(csv_reader, None)
-
 			if header_row:
+				# Find the indices of the energy columns
 				try:
 					proc_energy_index = header_row.index("Proc Energy (Joules)")
+					power_plane_0_index = header_row.index("Power Plane 0 Energy (Joules)")
+					power_plane_1_index = header_row.index("Power Plane 1 Energy (Joules)")
 				except ValueError:
-					proc_energy_index = None
+					proc_energy_index = power_plane_0_index = power_plane_1_index = None
 
 			# Read the data row with actual values
 			data_row = next(csv_reader, None)
-			if data_row and proc_energy_index is not None:
-				proc_energy = float(data_row[proc_energy_index])
-				
+			if data_row:
+				# Retrieve energy values if the indices are available and add them to the total
+				proc_energy = float(data_row[proc_energy_index]) if proc_energy_index is not None else 0.0
+				power_plane_0 = float(data_row[power_plane_0_index]) if power_plane_0_index is not None else 0.0
+				power_plane_1 = float(data_row[power_plane_1_index]) if power_plane_1_index is not None else 0.0
+
+				# Add the current readings to the cumulative total
+				total_energy += proc_energy + power_plane_0 + power_plane_1
+
+			total_energy
+
 		except Exception as e:
 			pass
-
-		return proc_energy
-
+		
+		return total_energy
 
 	def run(self):
 		app = self.app
@@ -141,10 +148,11 @@ class ObjectDetector:
 		def get_metrics():
 			try:
 				cpu_percent = psutil.cpu_percent(interval=None)
-				power_data = 10 #self.get_power_consumption()
-				fps =  int(self.fps())
+				power_data = self.get_power_consumption()
+				fps = 0  
 				latency = 0
 				if self.model is not None:
+					fps = int(self.model.fps())
 					latency = int(self.model.latency())
 
 				metrics = {
@@ -228,9 +236,6 @@ class ObjectDetector:
 		self.start_time = perf_counter()
 		self.running = True
 		self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
-
-	def fps(self):
-		return self.frames_number/(perf_counter() - self.start_time)
 
 	def video_stream(self):
 

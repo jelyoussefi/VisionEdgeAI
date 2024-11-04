@@ -6,7 +6,7 @@ USER root
 RUN apt update -y && \
     apt install -y build-essential wget gpg curl \
     python3-pip python3-dev python3-opencv \
-    libopencv-dev libqt5widgets5 pciutils pcm
+    libopencv-dev libqt5widgets5 pciutils git
 
 
 RUN pip3 install Flask nncf fire psutil cython ultralytics  --break-system-packages
@@ -40,4 +40,11 @@ RUN wget https://github.com/intel/linux-npu-driver/releases/download/v1.8.0/inte
 RUN dpkg -i *.deb
 RUN rm *.deb
 
+RUN git clone --recursive https://github.com/intel/pcm
+RUN cd ./pcm && mkdir build && cd build && \
+	cmake .. && cmake --build . --parallel && make install && \
+	rm -rf /tmp/pcm
+	
+RUN pip3 install openvino-dev[onnx] --break-system-packages
+	
 ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}

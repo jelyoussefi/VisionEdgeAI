@@ -22,6 +22,7 @@ from ultralytics.utils.plotting import colors
 import openvino.runtime as ov
 from openvino.runtime import Core, AsyncInferQueue
 import numpy as np
+from utils.model import Model
 
 #import dpctl
 	
@@ -30,26 +31,24 @@ np.import_array()
 cdef class YoloV8ModelBase():
 	def __init__(self, model_path, device, data_type="FP16", callback_function=None):
 
+		self.model = Model(None, device, data_type, self.preprocess, self.callback)
+		
 		self.cv = Condition()
 
-		self.model_path = model_path
-		self.device = device
-		self.data_type = data_type
-		self.callback_function = callback_function
-		self.request_queue_size = 2
+		self.user_callback = callback_function
 
 		self.name = os.path.splitext(os.path.basename(model_path))[0] 
 
 		model_name = os.path.basename(model_path).split('.')[0]
-		model_path = os.path.join("./models", data_type, model_name + ".xml")
-		labels_file = os.path.join("./models", data_type, model_name + "_labels.txt")
+		ov_model_path = os.path.join("./models", model_name, data_type, model_name + ".xml")
+		labels_file = os.path.join("./models", model_name, "labels.txt")
 		
-		if not os.path.isfile(model_path):
-			model = YOLO(self.model_path)
+		if not os.path.isfile(ov_model_path):
+			model = YOLO(model_path)
 			half=True if data_type=="FP16" else False
 			int8=True  if data_type=="INT8" else False
 			model.export(format="openvino", dynamic=False, half=half, int8=int8)
-			dst_model_dir = os.path.dirname(model_path)
+			dst_model_dir = os.path.dirname(ov_model_path)
 			src_model_dir = os.path.join("./", model_name+("_int8" if int8 else "") + "_openvino_model")
 			Path(dst_model_dir).mkdir(parents=True, exist_ok=True)
 			for src_file in Path(src_model_dir).iterdir():
@@ -64,56 +63,36 @@ cdef class YoloV8ModelBase():
 		with open(labels_file, "r") as file:
 			self.labels = [line.strip() for line in file]
 
-		self.core = Core()
-		self.ov_model = self.core.read_model(model_path)
-		self.input_layer_ir = self.ov_model.input(0)
-		self.input_layer_name = self.input_layer_ir.get_any_name()
-		self.input_height = self.input_layer_ir.shape[2]
-		self.input_width = self.input_layer_ir.shape[3]		
-		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
-		self.model = self.core.compile_model(self.ov_model, self.device.upper())
-		self.post_proc_device = None #dpctl.select_gpu_device()
-		self.output_tensor = self.model.outputs[0]
-
-		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
-		self.infer_queue.set_callback(self.ov_callback_function)
-
-		self.latencies = deque(maxlen=10)
+		self.model.init(ov_model_path)
+		
 		self.num_masks = 32
 		self.conf_threshold = 0.5
 		self.iou_threshold = 0.2
 
 
-	def ov_callback_function(self, infer_request, userdata):
-		image, start_time = userdata
+	def callback(self, boxes, image):
 
-		self.latencies.append((perf_counter() - start_time))
-
-		boxes = infer_request.results[self.output_tensor] 
 		masks = None 
 		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
 
 		image = self.draw_detections(image, boxes, scores, class_ids, 0.5, mask_maps=mask_maps)
 
 
-		if self.callback_function is not None:
-			self.callback_function(image)
+		if self.user_callback is not None:
+			self.user_callback(image)
 
-	def predict(self, image:np.ndarray):
-		resized_image = self.preprocess(image)
-		
-		start_time = perf_counter()
-		self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
+	def predict(self, image):
+		return self.model.predict(image)
+
+	def fps(self):
+		return self.model.fps()
 
 	def latency(self):
-		if len(self.latencies) > 0:
-			return 1000*np.mean(self.latencies)
-		else:
-			return 0
+		return self.model.latency()
 
 	def preprocess(self, image):
 		input_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-		input_img = cv2.resize(input_img, (self.input_width, self.input_height))
+		input_img = cv2.resize(input_img, (self.model.input_width, self.model.input_height))
 		input_img = input_img / 255.0
 		input_img = input_img.transpose(2, 0, 1)
 		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
@@ -138,7 +117,7 @@ cdef class YoloV8ModelBase():
 		cdef np.ndarray[float, ndim=2] boxes = box_predictions[:, :4]
 
 		# Scale boxes to original image dimensions
-		cdef np.ndarray[long, ndim=1] input_shape = np.array([self.input_width, self.input_height, self.input_width, self.input_height])
+		cdef np.ndarray[long, ndim=1] input_shape = np.array([self.model.input_width, self.model.input_height, self.model.input_width, self.model.input_height])
 		boxes = np.divide(boxes, input_shape, dtype=np.float32)
 		boxes *= np.array([img_width, img_height, img_width, img_height])
 
