@@ -8,10 +8,10 @@ RUN apt update -y && \
     python3-pip python3-dev python3-opencv \
     libopencv-dev libqt5widgets5 pciutils git
 
-
 RUN pip3 install Flask nncf fire psutil cython ultralytics  --break-system-packages
 RUN pip3 install --pre -U openvino --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly --break-system-packages
 RUN pip3 install flask_bootstrap --break-system-packages
+RUN pip3 install openvino-dev  --break-system-packages
 
 WORKDIR /opt/intel
 RUN curl -L https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.4/linux/l_openvino_toolkit_ubuntu24_2024.4.0.16579.c3152d32c9c_x86_64.tgz \
@@ -45,6 +45,11 @@ RUN cd ./pcm && mkdir build && cd build && \
 	cmake .. && cmake --build . --parallel && make install && \
 	rm -rf /tmp/pcm
 	
-RUN pip3 install openvino-dev[onnx] --break-system-packages
-	
+COPY ./utils/models.sh /tmp/
+
+WORKDIR /opt/models
+RUN /tmp/models.sh && rm -rf  /tmp/models.sh
+
 ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}
+
+WORKDIR /root

@@ -9,12 +9,33 @@ from collections import deque
 from time import perf_counter
 from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
-from utils.yolov8_model import YoloV8Model
 from utils.images_capture import VideoCapture
+
+from utils.yolov8_model import YoloV8Model
+from utils.model import Model
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
+
+models = {
+    "yolov8n": {
+        "model": "yolov8n",
+        "adapter": YoloV8Model
+    },
+    "yolov8s": {
+        "model": "yolov8s",
+        "adapter": YoloV8Model
+    },
+    "yolov8m": {
+        "model": "yolov8m",
+        "adapter": YoloV8Model
+    },
+    "person-detection": {
+        "model": "pedestrian-detection-adas-0002",
+        "adapter": Model
+    }
+}
 
 class ObjectDetector:
 	def __init__(self):
@@ -26,17 +47,19 @@ class ObjectDetector:
 		self.upload_folder = '/workspace/videos'
 		self.start_time = perf_counter()
 		os.makedirs(self.upload_folder, exist_ok=True)
-		self.model = self.model_path = self.device = self.input = self.data_type = self.cap = None
+		self.model = self.model_name = self.device = self.input = self.data_type = self.cap = None
 
-	def init(self, model_path, input, device="GPU", data_type="FP16"):
+	def init(self, model_name, input, device="GPU", data_type="FP16"):
 		self.cv.acquire()
 
-		if (model_path != self.model_path) or (device != self.device) or (data_type != self.data_type):
-			self.model_path = model_path
+		if (model_name != self.model_name) or (device != self.device) or (data_type != self.data_type):
+			self.model_name = model_name
 			self.device = device
 			self.data_type = data_type
-			if model_path is not None and device is not None and data_type is not None:
-				self.model = YoloV8Model(model_path, device, data_type, self.callback_function)
+			if model_name is not None and device is not None and data_type is not None:
+				model_path = f'/opt/models/{model_name}/{data_type}/{models[model_name]['model']}.xml'
+				adapter = models[model_name]['adapter']
+				self.model = adapter(model_path, device, data_type, self.callback_function)
 		self.frame = None
 		if input != self.input:
 			self.input = input
@@ -135,10 +158,18 @@ class ObjectDetector:
 			default_file = files[0] if files else "No files available"
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
+			model_names = list(models.keys())
+			default_model = model_names[0] if model_names else "No models available"
 
-			return render_template('index.html', default_device="GPU", default_model="yolov8n",
-								   default_precision="FP16", default_file=default_file,
-								   cpu_model=cpu_model, gpu_model=gpu_model)
+			return render_template('index.html', 
+							        default_device="GPU", 
+							        default_model=default_model,
+							        default_precision="FP16", 
+							        default_file=default_file,
+							        cpu_model=cpu_model, 
+							        gpu_model=gpu_model,
+							        model_names=model_names  
+							    	)
 
 		@app.route('/video_feed')
 		def video_feed():
@@ -194,7 +225,7 @@ class ObjectDetector:
 			if not source:
 				return jsonify({'error': 'No source provided'}), 400
 
-			self.init(self.model_path, input, self.device, self.data_type)
+			self.init(self.model_name, input, self.device, self.data_type)
 
 			return jsonify({'message': f'Source {source} selected successfully'}), 200
 
@@ -206,7 +237,7 @@ class ObjectDetector:
 			if not device:
 				return jsonify({'error': 'No device provided'}), 400
 
-			self.init(self.model_path, self.input, device, self.data_type)
+			self.init(self.model_name, self.input, device, self.data_type)
 
 			return jsonify({'message': f'Device {device} selected successfully'}), 200
 
@@ -228,7 +259,7 @@ class ObjectDetector:
 			if not data_type:
 				return jsonify({'error': 'No precision provided'}), 400
 			
-			self.init(self.model_path, self.input, self.device, data_type)
+			self.init(self.model_name, self.input, self.device, data_type)
 			
 			return jsonify({'message': f'Precision {data_type} selected successfully'}), 200
 

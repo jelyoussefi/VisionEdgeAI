@@ -66,15 +66,14 @@
                 </div>
             </div>
 
-            <!-- Model selection dropdown -->
             <div class="dropdown">
                 <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="modelDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     {{ default_model }}
                 </button>
                 <div class="dropdown-menu" aria-labelledby="modelDropdown">
-                    <a class="dropdown-item model-option" data-model="yolov8n">yolov8n</a>
-                    <a class="dropdown-item model-option" data-model="yolov8s">yolov8s</a>
-                    <a class="dropdown-item model-option" data-model="yolov8m">yolov8m</a>
+                    {% for model_name in model_names %}
+                        <a class="dropdown-item model-option" data-model="{{ model_name }}">{{ model_name }}</a>
+                    {% endfor %}
                 </div>
             </div>
 

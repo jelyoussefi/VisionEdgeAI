@@ -17,7 +17,6 @@ import cv2
 from PIL import Image
 from time import perf_counter
 import pathlib
-from ultralytics import YOLO
 from ultralytics.utils.plotting import colors
 import openvino.runtime as ov
 from openvino.runtime import Core, AsyncInferQueue
@@ -28,42 +27,24 @@ from utils.model import Model
 	
 np.import_array()
 
+labels = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 
+		  'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 
+		  'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 
+		  'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 
+		  'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 
+		  'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 
+		  'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
+
 cdef class YoloV8ModelBase():
 	def __init__(self, model_path, device, data_type="FP16", callback_function=None):
 
-		self.model = Model(None, device, data_type, self.preprocess, self.callback)
+		self.model = Model(model_path, device, data_type, self.preprocess, self.callback)
 		
 		self.cv = Condition()
 
 		self.user_callback = callback_function
 
-		self.name = os.path.splitext(os.path.basename(model_path))[0] 
-
-		model_name = os.path.basename(model_path).split('.')[0]
-		ov_model_path = os.path.join("./models", model_name, data_type, model_name + ".xml")
-		labels_file = os.path.join("./models", model_name, "labels.txt")
-		
-		if not os.path.isfile(ov_model_path):
-			model = YOLO(model_path)
-			half=True if data_type=="FP16" else False
-			int8=True  if data_type=="INT8" else False
-			model.export(format="openvino", dynamic=False, half=half, int8=int8)
-			dst_model_dir = os.path.dirname(ov_model_path)
-			src_model_dir = os.path.join("./", model_name+("_int8" if int8 else "") + "_openvino_model")
-			Path(dst_model_dir).mkdir(parents=True, exist_ok=True)
-			for src_file in Path(src_model_dir).iterdir():
-				if src_file.is_file():
-					shutil.copy2(src_file, Path(dst_model_dir) / src_file.name)
-			shutil.rmtree(src_model_dir)
-
-			with open(labels_file, "w") as label_file:
-				for index, label in enumerate(model.names.values()):
-					label_file.write(f"{label}\n")
-
-		with open(labels_file, "r") as file:
-			self.labels = [line.strip() for line in file]
-
-		self.model.init(ov_model_path)
+		self.labels = labels
 		
 		self.num_masks = 32
 		self.conf_threshold = 0.5
