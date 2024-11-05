@@ -1,33 +1,22 @@
 import os
 from collections import deque
-from threading import Condition
-import cv2
 import numpy as np
+import cv2
 from time import perf_counter
 from openvino.runtime import Core, AsyncInferQueue
 
 
 class Model():
-	def __init__(self, model_path, device, data_type, preprocess, call_back):
+	def __init__(self, model_path, device, data_type):
 		
-		self.cv = Condition()
 		self.model_path = model_path
 		self.device = device
 		self.data_type = data_type
-		self.callback_function = call_back
 		self.request_queue_size = 2
-		self.latencies = deque(maxlen=10)
-		if preprocess is not None:
-			self.preprocess = preprocess
-
-		self.core = Core()
+		self.latencies = deque(maxlen=100)
 		
-		if model_path is not None:
-			self.init(model_path)
+		self.core = Core()
 
-	def init(self, model_path):
-
-		self.model_path = model_path
 		self.ov_model = self.core.read_model(model_path)
 		self.input_layer_ir = self.ov_model.input(0)
 		self.input_layer_name = self.input_layer_ir.get_any_name()
@@ -38,37 +27,39 @@ class Model():
 		self.output_tensor = self.model.outputs[0]
 
 		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
-		self.infer_queue.set_callback(self.callback)
+		self.infer_queue.set_callback(self.ov_callback)
 		self.frames_number = 0
 		self.start_time = None
-
+		self.running = True
 
 	def predict(self, image:np.ndarray):
 
-		self.cv.acquire()
+		if self.running :
+			if 	self.frames_number == 0:
+				self.start_time = perf_counter()
 
-		if 	self.frames_number == 0:
-			self.start_time = perf_counter()
+			self.frames_number += 1
 
-		self.frames_number += 1
-
-		self.cv.release()
-
-		resized_image = self.preprocess(image)
-		
-		start_time = perf_counter()
-		self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
+			resized_image = self.preprocess(image)
+			
+			start_time = perf_counter()
+			self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
 
 
-	def callback(self, infer_request, userdata):
-		image, start_time = userdata
+	def ov_callback(self, infer_request, userdata):
+		try:
 
-		self.latencies.append((perf_counter() - start_time))
+			if self.running:
 
-		result = infer_request.results[self.output_tensor] 
+				image, start_time = userdata
+				self.latencies.append(perf_counter() - start_time)
+				
+				result = infer_request.results[self.output_tensor]
 
-		if self.callback_function is not None:
-			self.callback_function(result, image)			
+				self.callback(result, image)
+					
+		except Exception as e:
+			print(f"Error in callback: {e}")	
 
 	def fps(self):
 		return self.frames_number/(perf_counter() - self.start_time) if self.start_time is not None else 0
@@ -81,7 +72,21 @@ class Model():
 			return 0
 
 	def preprocess(self, image):
-		return None
+		input_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		input_img = cv2.resize(input_img, (self.input_width, self.input_height))
+		input_img = input_img / 255.0
+		input_img = input_img.transpose(2, 0, 1)
+		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
+
+		return input_tensor
 
 
-	
+	def callback(self, resuly, image):
+		print("not implemented")
+
+	def shutdown(self):
+		try:
+			self.infer_queue.wait_all()
+			
+		except Exception as e:
+			print(f"Error in shutdown: {e}")	

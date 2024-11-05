@@ -24,6 +24,9 @@ class ImagesCapture:
     def read():
         raise NotImplementedError
 
+    def release():
+        pass
+
     def get_distance(self, x, y):
         return None
 
@@ -81,7 +84,6 @@ class DirReader(ImagesCapture):
     def read(self):
         while self.file_id < len(self.names):
             filename = os.path.join(self.dir, self.names[self.file_id])
-            print(filename)
             image = cv2.imread(filename, cv2.IMREAD_COLOR)
             self.file_id += 1
             if image is not None:
@@ -128,6 +130,9 @@ class VideoCapWrapper(ImagesCapture):
 
     def get_type(self):
         return 'VIDEO'
+
+    def release(self):
+        self.cap.release()
 
 class CameraCapWrapper(ImagesCapture):
 

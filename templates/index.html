@@ -262,14 +262,6 @@
                 });
             }
 
-            // Update gauge every second
-            setInterval(updateGauges, 1000);
-
-            let currentFile = "{{ default_file }}";
-            let currentDevice = "{{ default_device }}";  
-            let currentPrecision = "{{ default_precision }}";  
-            let currentModel = "{{ default_model }}";  
-
             // Load files dynamically for selection
             $.getJSON('/get_uploaded_files', function(files) {
                 files.forEach(function(file) {
@@ -282,15 +274,14 @@
                 $(`.file-option[data-file="${currentFile}"]`).hide();
             });
 
-            // Function to select a source file with scaling effect
-            function selectSource(source, animate=true) {
-                var timeout=0
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    timeout = 500
-                }
+            
+            let currentFile = "{{ default_file }}";
+            let currentDevice = "{{ default_device }}";
+            let currentPrecision = "{{ default_precision }}";
+            let currentModel = "{{ default_model }}";
 
-                setTimeout(function() {
+            function selectSource(source, animate=true) {
+                const updateSource = function() {
                     $('#fileDropdown').text(source);
                     $.ajax({
                         url: '/select_source',
@@ -299,32 +290,27 @@
                         data: JSON.stringify({ source: source }),
                         success: function(response) {
                             console.log('Source selected successfully:', response);
-
-                            // Hide the previously selected source and update the current file
                             $(`.file-option[data-file="${currentFile}"]`).show();
                             $(`.file-option[data-file="${source}"]`).hide();
                             currentFile = source;
-
-                            // Apply scale-in effect after source selection
                             $('#source').removeClass('scale-out').addClass('scale-in');
                         },
                         error: function(xhr, status, error) {
                             console.error('Error selecting source:', error);
-                            $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
+                            $('#source').removeClass('scale-out').addClass('scale-in');
                         }
                     });
-                }, timeout); 
-            }
-
-            // Model selection with scale effect on video
-            function selectModel(model, animate=true) {
-                var timeout=0
+                };
                 if (animate) {
                     $('#source').removeClass('scale-in').addClass('scale-out');
-                    timeout = 500
+                    setTimeout(updateSource, 200);
+                } else {
+                    updateSource();
                 }
+            }
 
-                setTimeout(function() {
+            function selectModel(model, animate=true) {
+                const updateModel = function() {
                     $('#modelDropdown').text(model);
                     $.ajax({
                         url: '/select_model',
@@ -333,62 +319,56 @@
                         data: JSON.stringify({ model: model }),
                         success: function(response) {
                             console.log('Model selected successfully:', response);
-
-                            // Hide previously selected model and update the current model
                             $(`.model-option[data-model="${currentModel}"]`).show();
                             $(`.model-option[data-model="${model}"]`).hide();
                             currentModel = model;
-
-                            // Scale video back in after model selection
                             $('#source').removeClass('scale-out').addClass('scale-in');
                         },
                         error: function(xhr, status, error) {
                             console.error('Error selecting model:', error);
-                            $('#source').removeClass('scale-out').addClass('scale-in'); // Ensure video scales back in on error
+                            $('#source').removeClass('scale-out').addClass('scale-in');
                         }
                     });
-                }, timeout); 
+                };
+                if (animate) {
+                    $('#source').removeClass('scale-in').addClass('scale-out');
+                    setTimeout(updateModel, 200);
+                } else {
+                    $(`.model-option[data-model="${model}"]`).hide();
+                }
             }
 
             function selectDevice(device, animate=true) {
-                var timeout=0
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    timeout = 500
-                }
-
-                setTimeout(function() {
+                const updateDevice = function() {
                     $('#deviceDropdown').text(device);
-                    $.ajax({
+                   $.ajax({
                         url: '/select_device',
                         type: 'POST',
                         contentType: 'application/json',
                         data: JSON.stringify({ device: device }),
                         success: function(response) {
                             console.log('Device selected successfully:', response);
-
                             $(`.device-option[data-device="${currentDevice}"]`).show();
                             $(`.device-option[data-device="${device}"]`).hide();
                             currentDevice = device;
-
-                            // Scale video back in after model selection
                             $('#source').removeClass('scale-out').addClass('scale-in');
                         },
                         error: function(xhr, status, error) {
                             console.error('Error selecting device:', error);
+                            alert("Device selection failed. Please try again.");
                         }
                     });
-                }, timeout); 
+                };
+                if (animate) {
+                    $('#source').removeClass('scale-in').addClass('scale-out');
+                    setTimeout(updateDevice, 200);
+                } else {
+                    $(`.device-option[data-device="${device}"]`).hide();
+                }
             }
 
             function selectPrecision(precision, animate=true) {
-                var timeout=0
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    timeout = 500
-                }
-                
-                setTimeout(function() {
+                const updatePrecision = function() {
                     $('#precisionDropdown').text(precision);
                     $.ajax({
                         url: '/select_precision',
@@ -397,27 +377,30 @@
                         data: JSON.stringify({ precision: precision }),
                         success: function(response) {
                             console.log('Precision selected successfully:', response);
-
                             $(`.precision-option[data-precision="${currentPrecision}"]`).show();
                             $(`.precision-option[data-precision="${precision}"]`).hide();
                             currentPrecision = precision;
-
-                            // Scale video back in after model selection
                             $('#source').removeClass('scale-out').addClass('scale-in');
                         },
                         error: function(xhr, status, error) {
                             console.error('Error selecting precision:', error);
                         }
                     });
-                }, timeout);
-
+                };
+                if (animate) {
+                    $('#source').removeClass('scale-in').addClass('scale-out');
+                    setTimeout(updatePrecision, 200);
+                } else {
+                    $(`.precision-option[data-precision="${precision}"]`).hide();
+                }
             }
 
-            // Initial selection of model, device, and precision
             selectModel(currentModel, false);
             selectDevice(currentDevice, false);
             selectPrecision(currentPrecision, false);
             selectSource(currentFile, false)
+
+            setInterval(updateGauges, 1000);
 
             $('.model-option').on('click', function() {
                 const selectedModel = $(this).data('model');
@@ -440,14 +423,12 @@
                 }
             });
 
-             // Handle file selection from existing files
             $('#fileDropdownMenu').on('click', '.file-option', function() {
                 const selectedFile = $(this).data('file');
                 if (selectedFile !== currentFile) {
                     selectSource(selectedFile);
                 }
             });
-
 
 
         });

@@ -35,12 +35,10 @@ labels = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 
 		  'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 
 		  'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
 
-cdef class YoloV8ModelBase():
-	def __init__(self, model_path, device, data_type="FP16", callback_function=None):
 
-		self.model = Model(model_path, device, data_type, self.preprocess, self.callback)
-		
-		self.cv = Condition()
+
+cdef class YoloV8ModelBase():
+	def __init__(self, callback_function=None):
 
 		self.user_callback = callback_function
 
@@ -52,33 +50,13 @@ cdef class YoloV8ModelBase():
 
 
 	def callback(self, boxes, image):
-
 		masks = None 
 		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
 
 		image = self.draw_detections(image, boxes, scores, class_ids, 0.5, mask_maps=mask_maps)
 
-
 		if self.user_callback is not None:
 			self.user_callback(image)
-
-	def predict(self, image):
-		return self.model.predict(image)
-
-	def fps(self):
-		return self.model.fps()
-
-	def latency(self):
-		return self.model.latency()
-
-	def preprocess(self, image):
-		input_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-		input_img = cv2.resize(input_img, (self.model.input_width, self.model.input_height))
-		input_img = input_img / 255.0
-		input_img = input_img.transpose(2, 0, 1)
-		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
-
-		return input_tensor
 
 	def postprocess(self, pred_boxes, pred_masks, orig_img):
 		boxes, scores, class_ids, mask_pred = self.process_box_output(pred_boxes, orig_img)
@@ -98,7 +76,7 @@ cdef class YoloV8ModelBase():
 		cdef np.ndarray[float, ndim=2] boxes = box_predictions[:, :4]
 
 		# Scale boxes to original image dimensions
-		cdef np.ndarray[long, ndim=1] input_shape = np.array([self.model.input_width, self.model.input_height, self.model.input_width, self.model.input_height])
+		cdef np.ndarray[long, ndim=1] input_shape = np.array([self.input_width, self.input_height, self.input_width, self.input_height])
 		boxes = np.divide(boxes, input_shape, dtype=np.float32)
 		boxes *= np.array([img_width, img_height, img_width, img_height])
 
@@ -314,9 +292,10 @@ cdef class YoloV8ModelBase():
 
 		return cv2.addWeighted(mask_img, mask_alpha, image, 1 - mask_alpha, 0)
 
-class YoloV8Model(YoloV8ModelBase):
+class YoloV8Model(YoloV8ModelBase, Model):
 	def __init__(self, model_path, device, data_type, callback_function):
-		super().__init__(model_path, device, data_type, callback_function)
-		
+		YoloV8ModelBase.__init__(self, callback_function)
+		Model.__init__(self, model_path, device, data_type)
+
 
 	

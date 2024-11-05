@@ -1,11 +1,11 @@
-import os, time, platform, queue, psutil, subprocess, random, logging
+import os, sys, time, signal, platform, psutil, subprocess, logging
 import fire
 import cv2
 import numpy as np
 import csv
 import io
 from threading import Condition
-from collections import deque
+from queue import Queue, Empty, Full
 from time import perf_counter
 from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
@@ -13,139 +13,96 @@ from utils.images_capture import VideoCapture
 
 from utils.yolov8_model import YoloV8Model
 from utils.model import Model
+import threading
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 models = {
-    "yolov8n": {
-        "model": "yolov8n",
-        "adapter": YoloV8Model
-    },
-    "yolov8s": {
-        "model": "yolov8s",
-        "adapter": YoloV8Model
-    },
-    "yolov8m": {
-        "model": "yolov8m",
-        "adapter": YoloV8Model
-    },
-    "person-detection": {
-        "model": "pedestrian-detection-adas-0002",
-        "adapter": Model
-    }
+	"yolov8n": {
+		"model": "yolov8n",
+		"adapter": YoloV8Model
+	},
+	"yolov8s": {
+		"model": "yolov8s",
+		"adapter": YoloV8Model
+	},
+	"yolov8m": {
+		"model": "yolov8m",
+		"adapter": YoloV8Model
+	},
+	"person-detection": {
+		"model": "pedestrian-detection-adas-0002",
+		"adapter": Model
+	}
 }
 
 class ObjectDetector:
 	def __init__(self):
 		self.app = Flask(__name__)
 		self.port = 5000
-		self.running = False
+		self.running = True
 		self.cv = Condition()
-		self.queue = queue.Queue(maxsize=4)  
+		self.queue = Queue(maxsize=16)  # Set the queue size limit
 		self.upload_folder = '/workspace/videos'
-		self.start_time = perf_counter()
 		os.makedirs(self.upload_folder, exist_ok=True)
 		self.model = self.model_name = self.device = self.input = self.data_type = self.cap = None
 
 	def init(self, model_name, input, device="GPU", data_type="FP16"):
-		self.cv.acquire()
 
-		if (model_name != self.model_name) or (device != self.device) or (data_type != self.data_type):
-			self.model_name = model_name
-			self.device = device
-			self.data_type = data_type
-			if model_name is not None and device is not None and data_type is not None:
-				model_path = f'/opt/models/{model_name}/{data_type}/{models[model_name]['model']}.xml'
-				adapter = models[model_name]['adapter']
-				self.model = adapter(model_path, device, data_type, self.callback_function)
-		self.frame = None
-		if input != self.input:
-			self.input = input
-			self.cap = VideoCapture(input)
-		self.cv.release()
+		with self.cv:
+			if (model_name != self.model_name) or (device != self.device) or (data_type != self.data_type):
+				self.model_name = model_name
+				self.device = device
+				self.data_type = data_type
+				if model_name and device and data_type:
+					model_path = f'/opt/models/{model_name}/{data_type}/{models[model_name]["model"]}.xml'
+					adapter = models[model_name]['adapter']
+					if self.model:
+						self.model.shutdown()  # Safely shut down existing model
+					try:
+						self.model = adapter(model_path, device, data_type, self.callback_function)
+					except Exception as e:
+						print(f"Cannot init the model: {e}")
+
+					self.queue.queue.clear()
+
+			if input != self.input:
+				self.input = input
+				self.queue.queue.clear()
+				self.cap = VideoCapture(input)
+			
+			self.cv.notify_all()  # Notify other threads that initialization is complete
 
 	def callback_function(self, frame):
-		#self.cv.acquire()
-		self.queue.put(frame)
-		#self.cv.notify_all()
-		#self.cv.release()
+		if self.running:
+			try:
+				self.queue.put(frame, timeout=0.1)  # Try to add frame with timeout to avoid blocking
+			except Full:
+				print("Queue is full, dropping frame.")
 
-	def get_cpu_model(self):
-		try:
-			cpu_model = platform.uname().processor or platform.processor()
-			if not cpu_model or cpu_model == "x86_64" and platform.system() == "Linux":
-				with open("/proc/cpuinfo", "r") as f:
-					for line in f:
-						if "model name" in line:
-							cpu_model = line.split(":")[1].strip()
-							break
-			return cpu_model or "CPU model not available"
-		except Exception as e:
-			print(f"Error fetching CPU model: {e}")
-			return "CPU model not available"
+	def video_stream(self):
+		while self.running:
+			if self.cap is not None:
+				# Capture a frame from the video input
+				frame = self.cap.read()
+				if frame is not None and self.model is not None:
+					# Perform model prediction on the frame, triggering the callback
+					self.model.predict(frame)
 
-	def get_gpu_model(self):
-		try:
-			gpu_model = "GPU model not available"
-			
-			result = subprocess.run(
-				["lspci"], capture_output=True, text=True
-			)
-			for line in result.stdout.splitlines():
-				if "VGA compatible controller" in line or "3D controller" in line:
-					if "Intel" in line:
-						gpu_model = line.split(": ")[1]
-						break
+			# Try to get a frame from the queue with a short timeout
+			try:
+				frame = self.queue.get(timeout=0.01)
+			except Empty:
+				frame = None
 
-			return gpu_model.replace("Intel Corporation", "").strip()
-		
-		except Exception as e:
-			print(f"Error fetching GPU model: {e}")
-			return "GPU model not available"
+			if frame is not None:
+				ret, buffer = cv2.imencode('.jpg', frame)
+				frame = buffer.tobytes()
+				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-	def get_power_consumption(self):
-
-		total_energy = -1
-
-		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
-		
-		try:
-			result = subprocess.run(command, capture_output=True, text=True, timeout=60)
-			output = result.stdout
-
-			# Parse the CSV output
-			csv_reader = csv.reader(io.StringIO(output))
-			next(csv_reader, None)  # Skip the first line if it's a header
-
-			header_row = next(csv_reader, None)
-			if header_row:
-				# Find the indices of the energy columns
-				try:
-					proc_energy_index = header_row.index("Proc Energy (Joules)")
-					power_plane_0_index = header_row.index("Power Plane 0 Energy (Joules)")
-					power_plane_1_index = header_row.index("Power Plane 1 Energy (Joules)")
-				except ValueError:
-					proc_energy_index = power_plane_0_index = power_plane_1_index = None
-
-			# Read the data row with actual values
-			data_row = next(csv_reader, None)
-			if data_row:
-				# Retrieve energy values if the indices are available and add them to the total
-				proc_energy = float(data_row[proc_energy_index]) if proc_energy_index is not None else 0.0
-				power_plane_0 = float(data_row[power_plane_0_index]) if power_plane_0_index is not None else 0.0
-				power_plane_1 = float(data_row[power_plane_1_index]) if power_plane_1_index is not None else 0.0
-
-				# Add the current readings to the cumulative total
-				total_energy += proc_energy + power_plane_0 + power_plane_1
-
-			total_energy
-
-		except Exception as e:
-			pass
-		
-		return total_energy
+			time.sleep(0.02)
 
 	def run(self):
 		app = self.app
@@ -159,17 +116,22 @@ class ObjectDetector:
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 			model_names = list(models.keys())
+			default_device = "GPU"
+			default_precision = "FP16"
 			default_model = model_names[0] if model_names else "No models available"
+			default_source = os.path.join(self.upload_folder, default_file)
+
+			self.init(default_model, default_source, default_device, default_precision)
 
 			return render_template('index.html', 
-							        default_device="GPU", 
-							        default_model=default_model,
-							        default_precision="FP16", 
-							        default_file=default_file,
-							        cpu_model=cpu_model, 
-							        gpu_model=gpu_model,
-							        model_names=model_names  
-							    	)
+									default_device=default_device, 
+									default_model=default_model,
+									default_precision=default_precision, 
+									default_file=default_file,
+									cpu_model=cpu_model, 
+									gpu_model=gpu_model,
+									model_names=model_names  
+									)
 
 		@app.route('/video_feed')
 		def video_feed():
@@ -178,8 +140,8 @@ class ObjectDetector:
 		@app.route('/metrics', methods=['GET'])
 		def get_metrics():
 			try:
-				cpu_percent = psutil.cpu_percent(interval=None)
-				power_data = self.get_power_consumption()
+				cpu_percent = 0 #psutil.cpu_percent(interval=None)
+				power_data = 0 #self.get_power_consumption()
 				fps = 0  
 				latency = 0
 				if self.model is not None:
@@ -268,34 +230,107 @@ class ObjectDetector:
 		self.running = True
 		self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
 
-	def video_stream(self):
+		@app.route('/shutdown', methods=['POST'])
+		def shutdown_server():
+			if request.remote_addr != '127.0.0.1':  # Optional: restrict shutdown to local requests only
+				return jsonify({"error": "Unauthorized"}), 403
+			
+			func = request.environ.get('werkzeug.server.shutdown')
+			if func is None:
+				raise RuntimeError("Not running with the Werkzeug Server")
+			func()
+			return jsonify({"message": "Server shutting down..."})
 
-		while self.cap is None:
-			time.sleep(0.2)
+	def shutdown(self, signum=None, frame=None):
+		print("Shutting down gracefully...")
+		self.running = False  # Set the running flag to False to stop threads
 
-		self.cv.acquire()
-		while self.running:
-			self.cv.release()
-			frame = self.cap.read()
-			self.cv.acquire()
-			if self.model and frame is not None:
-				self.model.predict(frame.copy())
+		# Shut down the Flask server
+		try:
+			# Use requests to call the shutdown route from within the application
+			requests.post("http://127.0.0.1:5000/shutdown")
+		except Exception as e:
+			print("Error shutting down Flask server:", e)
 
-			self.cv.release()
-			while not self.queue.empty():
-				frame = self.queue.get()
-				if frame is not None:
-					self.frames_number += 1
-					ret, buffer = cv2.imencode('.jpg', frame)
-					frame = buffer.tobytes()
-					yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-					if not self.running:
+		# If there’s a model running, shut it down
+		if self.model:
+			self.model.shutdown()
+		print("Server has been stopped.")
+
+	def get_cpu_model(self):
+		try:
+			cpu_model = platform.uname().processor or platform.processor()
+			if not cpu_model or cpu_model == "x86_64" and platform.system() == "Linux":
+				with open("/proc/cpuinfo", "r") as f:
+					for line in f:
+						if "model name" in line:
+							cpu_model = line.split(":")[1].strip()
+							break
+			return cpu_model or "CPU model not available"
+		except Exception as e:
+			print(f"Error fetching CPU model: {e}")
+			return "CPU model not available"
+
+	def get_gpu_model(self):
+		try:
+			gpu_model = "GPU model not available"
+			
+			result = subprocess.run(
+				["lspci"], capture_output=True, text=True
+			)
+			for line in result.stdout.splitlines():
+				if "VGA compatible controller" in line or "3D controller" in line:
+					if "Intel" in line:
+						gpu_model = line.split(": ")[1]
 						break
-			self.cv.acquire()
 
-		self.cap = None
-		self.cv.notify_all()
-		self.cv.release()
+			return gpu_model.replace("Intel Corporation", "").strip()
+		
+		except Exception as e:
+			print(f"Error fetching GPU model: {e}")
+			return "GPU model not available"
+
+	def get_power_consumption(self):
+
+		total_energy = -1
+
+		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
+		
+		try:
+			result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+			output = result.stdout
+
+			# Parse the CSV output
+			csv_reader = csv.reader(io.StringIO(output))
+			next(csv_reader, None)  # Skip the first line if it's a header
+
+			header_row = next(csv_reader, None)
+			if header_row:
+				# Find the indices of the energy columns
+				try:
+					proc_energy_index = header_row.index("Proc Energy (Joules)")
+					power_plane_0_index = header_row.index("Power Plane 0 Energy (Joules)")
+					power_plane_1_index = header_row.index("Power Plane 1 Energy (Joules)")
+				except ValueError:
+					proc_energy_index = power_plane_0_index = power_plane_1_index = None
+
+			# Read the data row with actual values
+			data_row = next(csv_reader, None)
+			if data_row:
+				# Retrieve energy values if the indices are available and add them to the total
+				proc_energy = float(data_row[proc_energy_index]) if proc_energy_index is not None else 0.0
+				power_plane_0 = float(data_row[power_plane_0_index]) if power_plane_0_index is not None else 0.0
+				power_plane_1 = float(data_row[power_plane_1_index]) if power_plane_1_index is not None else 0.0
+
+				# Add the current readings to the cumulative total
+				total_energy += proc_energy + power_plane_0 + power_plane_1
+
+			total_energy
+
+		except Exception as e:
+			pass
+		
+		return total_energy
 
 def main():
 	app = ObjectDetector()
