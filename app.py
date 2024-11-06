@@ -12,7 +12,7 @@ from flask_bootstrap import Bootstrap
 from utils.images_capture import VideoCapture
 
 from utils.yolov8_model import YoloV8Model
-from utils.model import Model
+from utils.ssd_model import SSDModel
 import threading
 
 # Disable Flask's default request logging
@@ -34,7 +34,7 @@ models = {
 	},
 	"person-detection": {
 		"model": "pedestrian-detection-adas-0002",
-		"adapter": Model
+		"adapter": SSDModel
 	}
 }
 
@@ -57,7 +57,7 @@ class ObjectDetector:
 				self.device = device
 				self.data_type = data_type
 				if model_name and device and data_type:
-					model_path = f'/opt/models/{model_name}/{data_type}/{models[model_name]["model"]}.xml'
+					model_path = f'/opt/models/{models[model_name]["model"]}/{data_type}/{models[model_name]["model"]}.xml'
 					adapter = models[model_name]['adapter']
 					if self.model:
 						self.model.shutdown()  # Safely shut down existing model
