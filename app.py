@@ -93,16 +93,16 @@ class ObjectDetector:
 
 			# Try to get a frame from the queue with a short timeout
 			try:
-				frame = self.queue.get(timeout=0.01)
+				image = self.queue.get(timeout=0.01)
 			except Empty:
-				frame = None
+				image = None
 
-			if frame is not None:
-				ret, buffer = cv2.imencode('.jpg', frame)
-				frame = buffer.tobytes()
-				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+			if image is not None:
+				ret, buffer = cv2.imencode('.jpg', image)
+				image = buffer.tobytes()
+				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + image + b'\r\n')
 
-			time.sleep(0.02)
+			time.sleep(0.005)
 
 	def run(self):
 		app = self.app

@@ -18,7 +18,6 @@ class OpenError(Exception):
     def __init__(self, message):
         self.message = message
 
-
 class ImagesCapture:
 
     def read():

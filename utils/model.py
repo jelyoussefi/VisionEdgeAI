@@ -81,6 +81,31 @@ class Model():
 
 		return input_tensor
 
+	def plot_one_box(self, image,  xmin, ymin, xmax, ymax, score, label, color):
+		img_height, img_width = image.shape[:2]
+		size = min([img_height, img_width]) * 0.0008
+		text_thickness = int(min([img_height, img_width]) * 0.002)
+
+		xmin = int(xmin)
+		ymin = int(ymin)
+		xmax = int(xmax)
+		ymax = int(ymax)
+
+		# Draw rectangle
+		cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, 2)
+
+		caption = f'{label} {int(score * 100)}%'
+		
+		(tw, th), _ = cv2.getTextSize(text=caption, fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+									  fontScale=size, thickness=text_thickness)
+		th = int(th * 1.2)
+
+		cv2.rectangle(image, (xmin, ymin), (xmin + tw, ymin - th), color, -1)
+
+		cv2.putText(image, caption, (xmin, ymin),
+					cv2.FONT_HERSHEY_SIMPLEX, size, (255, 255, 255), text_thickness, cv2.LINE_AA)
+		return image
+
 
 	def callback(self, resuly, image):
 		print("not implemented")
