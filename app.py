@@ -4,8 +4,10 @@ import cv2
 import numpy as np
 import csv
 import io
-from threading import Condition
+from threading import Thread, Condition
 from queue import Queue, Empty, Full
+from collections import deque
+from statistics import mean
 from time import perf_counter
 from flask import Flask, render_template, jsonify, request, Response
 from flask_bootstrap import Bootstrap
@@ -14,6 +16,7 @@ from utils.images_capture import VideoCapture
 from utils.yolov8_model import YoloV8Model
 from utils.ssd_model import SSDModel
 import threading
+
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
@@ -47,7 +50,12 @@ class ObjectDetector:
 		self.queue = Queue(maxsize=16)  # Set the queue size limit
 		self.upload_folder = '/workspace/videos'
 		os.makedirs(self.upload_folder, exist_ok=True)
+		self.cpu_loads = deque(maxlen=120)
+		self.power_consumptions = deque(maxlen=120)
 		self.model = self.model_name = self.device = self.input = self.data_type = self.cap = None
+		self.proc = Thread(target=self.metrics_handler)
+		self.proc.daemon = True
+		self.proc.start()
 
 	def init(self, model_name, input, device="GPU", data_type="FP16"):
 
@@ -140,8 +148,8 @@ class ObjectDetector:
 		@app.route('/metrics', methods=['GET'])
 		def get_metrics():
 			try:
-				cpu_percent = 0 #psutil.cpu_percent(interval=None)
-				power_data = 0 #self.get_power_consumption()
+				cpu_percent = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
+				power_data = int(mean(self.power_consumptions) if len(self.power_consumptions) > 0 else 0)
 				fps = 0  
 				latency = 0
 				if self.model is not None:
@@ -230,32 +238,6 @@ class ObjectDetector:
 		self.running = True
 		self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
 
-		@app.route('/shutdown', methods=['POST'])
-		def shutdown_server():
-			if request.remote_addr != '127.0.0.1':  # Optional: restrict shutdown to local requests only
-				return jsonify({"error": "Unauthorized"}), 403
-			
-			func = request.environ.get('werkzeug.server.shutdown')
-			if func is None:
-				raise RuntimeError("Not running with the Werkzeug Server")
-			func()
-			return jsonify({"message": "Server shutting down..."})
-
-	def shutdown(self, signum=None, frame=None):
-		print("Shutting down gracefully...")
-		self.running = False  # Set the running flag to False to stop threads
-
-		# Shut down the Flask server
-		try:
-			# Use requests to call the shutdown route from within the application
-			requests.post("http://127.0.0.1:5000/shutdown")
-		except Exception as e:
-			print("Error shutting down Flask server:", e)
-
-		# If there’s a model running, shut it down
-		if self.model:
-			self.model.shutdown()
-		print("Server has been stopped.")
 
 	def get_cpu_model(self):
 		try:
@@ -292,7 +274,7 @@ class ObjectDetector:
 
 	def get_power_consumption(self):
 
-		total_energy = -1
+		total_energy = 0
 
 		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
 		
@@ -331,6 +313,13 @@ class ObjectDetector:
 			pass
 		
 		return total_energy
+
+	def metrics_handler(self):
+		
+		while self.running:
+			self.cpu_loads.append(psutil.cpu_percent(0))
+			self.power_consumptions.append(self.get_power_consumption())
+			time.sleep(1)
 
 def main():
 	app = ObjectDetector()

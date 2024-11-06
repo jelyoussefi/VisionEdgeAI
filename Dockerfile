@@ -51,5 +51,5 @@ WORKDIR /opt/models
 RUN /tmp/models.sh && rm -rf  /tmp/models.sh
 
 ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}
-RUN pip3 install colorcet --break-system-packages
+
 WORKDIR /root
