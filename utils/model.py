@@ -7,11 +7,12 @@ from openvino.runtime import Core, AsyncInferQueue
 
 
 class Model():
-	def __init__(self, model_path, device, data_type):
+	def __init__(self, model_path, device, data_type, scale_factor=1):
 		
 		self.model_path = model_path
 		self.device = device
 		self.data_type = data_type
+		self.scale_factor = scale_factor
 		self.request_queue_size = 2
 		self.latencies = deque(maxlen=100)
 		
@@ -74,7 +75,7 @@ class Model():
 	def preprocess(self, image):
 		input_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 		input_img = cv2.resize(input_img, (self.input_width, self.input_height))
-		input_img = input_img / 255.0
+		input_img = input_img / self.scale_factor
 		input_img = input_img.transpose(2, 0, 1)
 		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
 

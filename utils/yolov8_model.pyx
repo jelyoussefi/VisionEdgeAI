@@ -295,7 +295,7 @@ cdef class YoloV8ModelBase():
 class YoloV8Model(YoloV8ModelBase, Model):
 	def __init__(self, model_path, device, data_type, callback_function):
 		YoloV8ModelBase.__init__(self, callback_function)
-		Model.__init__(self, model_path, device, data_type)
+		Model.__init__(self, model_path, device, data_type, 255.0)
 
 
 	
