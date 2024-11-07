@@ -26,6 +26,11 @@ for model in "${models[@]}"; do
     mv ${model}_int8_openvino_model/${model}.* ./${model}/INT8/
     rm -rf ${model}_int8_openvino_model/ ./datasets
     rm -f ${model}.pt
+    
+omz_downloader --name yolof
+omz_converter --name yolof
+mv public/yolof .
+rm -rf public
 done
 
 

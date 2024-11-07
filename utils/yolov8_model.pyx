@@ -49,7 +49,7 @@ cdef class YoloV8ModelBase():
 
 	def callback(self, boxes, image):
 		masks = None 
-		boxes, scores, class_ids, mask_maps = self.postprocess(boxes, masks, image )
+		boxes, scores, class_ids, mask_maps = self.postprocess(boxes[0], masks, image )
 
 		image = self.draw_detections(image, boxes, scores, class_ids, 0.5, mask_maps=mask_maps)
 

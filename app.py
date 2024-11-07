@@ -14,6 +14,7 @@ from flask_bootstrap import Bootstrap
 from utils.images_capture import VideoCapture
 
 from utils.yolov8_model import YoloV8Model
+from utils.yolo_model import YoloModel
 from utils.ssd_model import SSDModel
 import threading
 
@@ -23,6 +24,10 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 models = {
+	"yolof": {
+		"model": "yolof",
+		"adapter": YoloModel
+	},
 	"yolov8n": {
 		"model": "yolov8n",
 		"adapter": YoloV8Model
@@ -150,6 +155,9 @@ class ObjectDetector:
 			try:
 				cpu_percent = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
 				power_data = int(mean(self.power_consumptions) if len(self.power_consumptions) > 0 else 0)
+
+
+				
 				fps = 0  
 				latency = 0
 				if self.model is not None:

@@ -11,7 +11,7 @@ RUN apt update -y && \
 RUN pip3 install Flask nncf fire psutil cython ultralytics  --break-system-packages
 RUN pip3 install --pre -U openvino --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly --break-system-packages
 RUN pip3 install flask_bootstrap --break-system-packages
-RUN pip3 install openvino-dev  --break-system-packages
+RUN pip3 install openvino-dev[onnx]  --break-system-packages
 
 WORKDIR /opt/intel
 RUN curl -L https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.4/linux/l_openvino_toolkit_ubuntu24_2024.4.0.16579.c3152d32c9c_x86_64.tgz \
