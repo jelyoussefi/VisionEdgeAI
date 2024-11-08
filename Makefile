@@ -16,17 +16,14 @@ NO_PROXY := $(NO_PROXY)
 #----------------------------------------------------------------------------------------------------------------------
 # Docker Settings
 #----------------------------------------------------------------------------------------------------------------------
-DOCKER_IMAGE_NAME=safety
+DOCKER_IMAGE_NAME=vision_age_ai
 export DOCKER_BUILDKIT=1
-MODEL_SIZE ?= n
-IMAGE_SIZE ?= 640
-MODEL_NAME ?= yolov8${MODEL_SIZE}.pt
+
 
 # Docker run parameters with proxy settings
 DOCKER_RUN_PARAMS= \
 	-it --rm -a stdout -a stderr   \
 	--privileged -v /dev:/dev \
-	-p 5000:5000 \
 	-v ${CURRENT_DIR}:/workspace \
 	-w /workspace \
 	-e http_proxy=${HTTP_PROXY} \
@@ -51,8 +48,8 @@ build:
 		bash -c 'cd ./utils/  && python3 ./setup.py build_ext --quiet --inplace'
 
 run: build
-	@$(call msg, Running the yolov8 demo ...)
-	@docker run ${DOCKER_RUN_PARAMS} bash -c ' \
+	@$(call msg, Running the Vision Edge AI demo ...)
+	@docker run -p 5000:5000  ${DOCKER_RUN_PARAMS} bash -c ' \
 				python3 ./app.py '
 
 bash: build

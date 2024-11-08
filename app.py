@@ -14,7 +14,6 @@ from flask_bootstrap import Bootstrap
 from utils.images_capture import VideoCapture
 
 from utils.yolov8_model import YoloV8Model
-from utils.yolo_model import YoloModel
 from utils.ssd_model import SSDModel
 import threading
 
@@ -24,10 +23,6 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)  # Set level to ERROR to hide access logs
 
 models = {
-	"yolof": {
-		"model": "yolof",
-		"adapter": YoloModel
-	},
 	"yolov8n": {
 		"model": "yolov8n",
 		"adapter": YoloV8Model
@@ -55,8 +50,8 @@ class ObjectDetector:
 		self.queue = Queue(maxsize=16)  # Set the queue size limit
 		self.upload_folder = '/workspace/videos'
 		os.makedirs(self.upload_folder, exist_ok=True)
-		self.cpu_loads = deque(maxlen=120)
-		self.power_consumptions = deque(maxlen=120)
+		self.cpu_loads = deque(maxlen=4)
+		self.power_consumptions = deque(maxlen=4)
 		self.model = self.model_name = self.device = self.input = self.data_type = self.cap = None
 		self.proc = Thread(target=self.metrics_handler)
 		self.proc.daemon = True
@@ -280,46 +275,71 @@ class ObjectDetector:
 			print(f"Error fetching GPU model: {e}")
 			return "GPU model not available"
 
+
 	def get_power_consumption(self):
+		total_energy = 0.0
+		proc_energy = 0.0
+		power_plane_0 = 0.0
+		power_plane_1 = 0.0
 
-		total_energy = 0
-
-		command = ['pcm', '/csv', '0.5', '-nc', '-i=1', '-ns']
+		# Command to get the power consumption data
+		command = ['pcm', '/csv', '0.5', '-i=1']
 		
 		try:
+			# Run the pcm command and capture output
 			result = subprocess.run(command, capture_output=True, text=True, timeout=60)
 			output = result.stdout
 
+			# Print the raw output for debugging
+
 			# Parse the CSV output
 			csv_reader = csv.reader(io.StringIO(output))
-			next(csv_reader, None)  # Skip the first line if it's a header
+			
+			# Find and confirm the header row that contains "Proc Energy (Joules)"
+			header_row = None
+			for row in csv_reader:
+				if "Proc Energy (Joules)" in row:
+					header_row = row
+					break
 
-			header_row = next(csv_reader, None)
 			if header_row:
-				# Find the indices of the energy columns
-				try:
-					proc_energy_index = header_row.index("Proc Energy (Joules)")
-					power_plane_0_index = header_row.index("Power Plane 0 Energy (Joules)")
-					power_plane_1_index = header_row.index("Power Plane 1 Energy (Joules)")
-				except ValueError:
-					proc_energy_index = power_plane_0_index = power_plane_1_index = None
+				# Find the indices of the energy-related columns using pattern matching
+				proc_energy_index = next((i for i, col in enumerate(header_row) if "Proc Energy" in col), None)
+				power_plane_0_index = next((i for i, col in enumerate(header_row) if "Power Plane 0" in col), None)
+				power_plane_1_index = next((i for i, col in enumerate(header_row) if "Power Plane 1" in col), None)
+				
+				# Loop to find the actual data row with numeric values
+				data_row = None
+				for row in csv_reader:
+					# Check if the row contains numeric values in the required columns
+					if row and all(index is not None and row[index].replace('.', '', 1).isdigit() for index in [proc_energy_index, power_plane_0_index, power_plane_1_index]):
+						data_row = row
+						break
 
-			# Read the data row with actual values
-			data_row = next(csv_reader, None)
-			if data_row:
-				# Retrieve energy values if the indices are available and add them to the total
-				proc_energy = float(data_row[proc_energy_index]) if proc_energy_index is not None else 0.0
-				power_plane_0 = float(data_row[power_plane_0_index]) if power_plane_0_index is not None else 0.0
-				power_plane_1 = float(data_row[power_plane_1_index]) if power_plane_1_index is not None else 0.0
+				if data_row:
+					# Function to safely convert values to float
+					def safe_float(value):
+						try:
+							return float(value)
+						except ValueError:
+							return 0.0  # If conversion fails, return 0.0
 
-				# Add the current readings to the cumulative total
-				total_energy += proc_energy + power_plane_0 + power_plane_1
-
-			total_energy
+					# Extract energy values based on the indices from the header row
+					if proc_energy_index is not None:
+						proc_energy = safe_float(data_row[proc_energy_index])
+					if power_plane_0_index is not None:
+						power_plane_0 = safe_float(data_row[power_plane_0_index])
+					if power_plane_1_index is not None:
+						power_plane_1 = safe_float(data_row[power_plane_1_index])
+					
+					# Calculate the total energy by summing the values
+					total_energy = proc_energy + power_plane_0 + power_plane_1
 
 		except Exception as e:
-			pass
+			# Log any exception that occurs
+			print(f"An error occurred: {e}")
 		
+		# Return the total energy calculated
 		return total_energy
 
 	def metrics_handler(self):

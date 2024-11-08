@@ -14,15 +14,14 @@ RUN pip3 install flask_bootstrap --break-system-packages
 RUN pip3 install openvino-dev[onnx]  --break-system-packages
 
 WORKDIR /opt/intel
-RUN curl -L https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.4/linux/l_openvino_toolkit_ubuntu24_2024.4.0.16579.c3152d32c9c_x86_64.tgz \
-    --output openvino_2024.4.0.tgz
-RUN tar -xf openvino_2024.4.0.tgz
-RUN rm -f openvino_2024.4.0.tgz
-RUN mv l_openvino_toolkit_ubuntu24_2024.4.0.16579.c3152d32c9c_x86_64 /opt/intel/openvino_2024.4.0
-RUN ln -sf /opt/intel/openvino_2024.4.0 /opt/intel/openvino
+RUN curl -L https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2025.0.0-17303-5fad8053be6/l_openvino_toolkit_ubuntu24_2025.0.0.dev20241107_x86_64.tgz --output openvino.tgz
+RUN tar -xf openvino.tgz
+RUN rm -f openvino.tgz
+RUN mv l_openvino_toolkit_* /opt/intel/openvino
 RUN cd /opt/intel/openvino/ && \
     ./install_dependencies/install_openvino_dependencies.sh -y && \
     ./samples/cpp/build_samples.sh
+ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}
 
 RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
   		gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
@@ -45,11 +44,15 @@ RUN cd ./pcm && mkdir build && cd build && \
 	cmake .. && cmake --build . --parallel && make install && \
 	rm -rf /tmp/pcm
 	
-COPY ./utils/models.sh /tmp/
 
+
+RUN pip3 install --pre -U openvino --break-system-packages \
+	--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly 
+
+COPY ./utils/models.sh /tmp/
 WORKDIR /opt/models
 RUN /tmp/models.sh && rm -rf  /tmp/models.sh
+    
 
-ENV PATH=/root/openvino_cpp_samples_build/intel64/Release/:${PATH}
 
 WORKDIR /root
