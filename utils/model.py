@@ -39,7 +39,7 @@ class Model():
 	def predict(self, image:np.ndarray):
 		frame = None
 
-		if self.running :
+		if image is not None :
 			if 	self.frames_number == 0:
 				self.start_time = perf_counter()
 
@@ -52,10 +52,8 @@ class Model():
 				self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
 			else:
 				result = self.model(resized_image)[self.output_tensor]
-				print("------", result.shape)
 				frame = self.postprocess(result, image)
 				self.latencies.append(perf_counter() - start_time)
-
 		return frame
 
 	def ov_callback(self, infer_request, userdata):
@@ -91,8 +89,6 @@ class Model():
 
 		return input_tensor
 
-	def postprocess(self, output, image):
-		return None
 
 	def plot_one_box(self, image,  xmin, ymin, xmax, ymax, score, label, color):
 		img_height, img_width = image.shape[:2]

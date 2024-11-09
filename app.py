@@ -83,7 +83,12 @@ class ObjectDetector:
 				if self.cap is not None:
 					frame = self.cap.read()
 					if frame is not None and self.model is not None:
-						frame = self.model.predict(frame)
+						try:
+							frame = self.model.predict(frame)
+						except Exception as e:
+							print(f"error {e}")
+							continue
+
 						if frame is None:
 							try:
 								frame = self.queue.get(timeout=0.01)
@@ -306,6 +311,7 @@ class ObjectDetector:
 				return True
 
 	def release_connection(self, client_ip):
+		return 
 		with lock:
 			if client_ip in active_connections:
 				# Cancel the timer and release the connection

@@ -55,7 +55,6 @@ cdef class YoloV8ModelBase():
 	def postprocess(self, pred_boxes, image):
 		boxes, scores, class_ids = self.process_box_output(pred_boxes, image)
 		image = self.draw_detections(image, boxes, scores, class_ids)
-
 		return image
 
 	cdef get_boxes(self, np.ndarray[float, ndim=2] box_predictions, np.ndarray[uint8_t, ndim=3] orig_img):
