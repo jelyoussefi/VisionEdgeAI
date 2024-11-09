@@ -51,11 +51,12 @@ class Model():
 			if self.async_mode:
 				self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
 			else:
-				result = self.model(resized_image)[0]
+				result = self.model(resized_image)[self.output_tensor]
+				print("------", result.shape)
 				frame = self.postprocess(result, image)
 				self.latencies.append(perf_counter() - start_time)
 
-			return frame
+		return frame
 
 	def ov_callback(self, infer_request, userdata):
 		try:

@@ -84,7 +84,6 @@ cdef class YoloV8ModelBase():
 
 		return boxes
 
-	
 	cdef nms(self, np.ndarray[float, ndim=2] boxes, np.ndarray[float, ndim=1] scores, float iou_threshold):
 		# Sort by score
 		cdef np.ndarray[long, ndim=1] sorted_indices = np.argsort(scores)[::-1]
@@ -157,7 +156,7 @@ cdef class YoloV8ModelBase():
 		cdef np.ndarray[float, ndim=1]  iou = intersection_area / union_area
 
 		return iou
-		
+
 	def draw_detections(self, image, boxes, scores, class_ids):
 		img_height, img_width = image.shape[:2]
 		size = min([img_height, img_width]) * 0.0008
