@@ -70,7 +70,7 @@ class ObjectDetector:
 					if self.model:
 						self.model.shutdown()  # Safely shut down existing model
 					try:
-						self.model = adapter(model_path, device, data_type, self.callback_function)
+						self.model = adapter(model_path, device, data_type, None) #self.callback_function)
 					except Exception as e:
 						print(f"Cannot init the model: {e}")
 
@@ -97,18 +97,18 @@ class ObjectDetector:
 				frame = self.cap.read()
 				if frame is not None and self.model is not None:
 					# Perform model prediction on the frame, triggering the callback
-					self.model.predict(frame)
+					frame = self.model.predict(frame)
 
-			# Try to get a frame from the queue with a short timeout
-			try:
-				image = self.queue.get(timeout=0.01)
-			except Empty:
-				image = None
+					if frame is None:
+						try:
+							frame = self.queue.get(timeout=0.01)
+						except Empty:
+							continue
 
-			if image is not None:
-				ret, buffer = cv2.imencode('.jpg', image)
-				image = buffer.tobytes()
-				yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + image + b'\r\n')
+					if frame is not None:
+						ret, buffer = cv2.imencode('.jpg', frame)
+						frame = buffer.tobytes()
+						yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 			time.sleep(0.005)
 

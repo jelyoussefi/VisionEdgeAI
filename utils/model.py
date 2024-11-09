@@ -7,11 +7,12 @@ from openvino.runtime import Core, AsyncInferQueue
 
 
 class Model():
-	def __init__(self, model_path, device, data_type, scale_factor=1):
+	def __init__(self, model_path, device, data_type, scale_factor=1, async_mode=True):
 		
 		self.model_path = model_path
 		self.device = device
 		self.data_type = data_type
+		self.async_mode = async_mode
 		self.scale_factor = scale_factor
 		self.request_queue_size = 2
 		self.latencies = deque(maxlen=100)
@@ -26,14 +27,17 @@ class Model():
 		self.ov_model.reshape({0: [1, 3, self.input_height, self.input_width]})
 		self.model = self.core.compile_model(self.ov_model, self.device.upper())
 		self.output_tensor = self.model.outputs[0]
-
-		self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
-		self.infer_queue.set_callback(self.ov_callback)
+		self.infer_queue = None
+		if self.async_mode:
+			self.infer_queue = AsyncInferQueue(self.model, self.request_queue_size)
+			self.infer_queue.set_callback(self.ov_callback)
+		
 		self.frames_number = 0
 		self.start_time = None
 		self.running = True
 
 	def predict(self, image:np.ndarray):
+		frame = None
 
 		if self.running :
 			if 	self.frames_number == 0:
@@ -44,8 +48,14 @@ class Model():
 			resized_image = self.preprocess(image)
 			
 			start_time = perf_counter()
-			self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
+			if self.async_mode:
+				self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
+			else:
+				result = self.model(resized_image)[0]
+				frame = self.postprocess(result, image)
+				self.latencies.append(perf_counter() - start_time)
 
+			return frame
 
 	def ov_callback(self, infer_request, userdata):
 		try:
@@ -65,7 +75,6 @@ class Model():
 	def fps(self):
 		return self.frames_number/(perf_counter() - self.start_time) if self.start_time is not None else 0
 
-
 	def latency(self):
 		if len(self.latencies) > 0:
 			return 1000*np.mean(self.latencies)
@@ -80,6 +89,9 @@ class Model():
 		input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
 
 		return input_tensor
+
+	def postprocess(self, output, image):
+		return None
 
 	def plot_one_box(self, image,  xmin, ymin, xmax, ymax, score, label, color):
 		img_height, img_width = image.shape[:2]
@@ -111,8 +123,9 @@ class Model():
 		print("not implemented")
 
 	def shutdown(self):
-		try:
-			self.infer_queue.wait_all()
-			
-		except Exception as e:
-			print(f"Error in shutdown: {e}")	
+		if self.infer_queue is not None:
+			try:
+				self.infer_queue.wait_all()
+				
+			except Exception as e:
+				print(f"Error in shutdown: {e}")	
