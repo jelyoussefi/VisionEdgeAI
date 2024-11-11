@@ -5,432 +5,432 @@
 
 {% block head %}
   {{ super() }}
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/@turf/turf@6.2.0-alpha.1/dist/turf.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css" rel="stylesheet">
+	<script src="https://unpkg.com/@turf/turf@6.2.0-alpha.1/dist/turf.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
 {% endblock %}
 
 {% block content %}
-    <div class="main">
-        <h1 id="title">Vision Edge AI</h1>
+	<div class="main">
+		<h1 id="title">Vision Edge AI</h1>
 
-        <div id="main-content" class="d-flex align-items-center justify-content-center">
-            <div class="gauges-container">
-                <div class="gauge-container">
-                    <div id="cpuGauge" class="gauge"></div>
-                    <div class="gauge-label">CPU Usage</div> 
-                </div>
+		<div id="main-content" class="d-flex align-items-center justify-content-center">
+			<div class="gauges-container">
+				<div class="gauge-container">
+					<div id="cpuGauge" class="gauge"></div>
+					<div class="gauge-label">CPU Usage</div> 
+				</div>
 
-                <div class="gauge-container">
-                    <div id="fpsGauge" class="gauge"></div>
-                    <div class="gauge-label">FPS</div> 
-                </div>
-            </div>
-            <!-- Video feed in the center -->
-            <div class="video-container">
-                <img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">
-            </div>
+				<div class="gauge-container">
+					<div id="fpsGauge" class="gauge"></div>
+					<div class="gauge-label">FPS</div> 
+				</div>
+			</div>
+			<!-- Video feed in the center -->
+			<div class="video-container">
+				<img id="source" src="{{ url_for('video_feed') }}" class="img-fluid scale-in">
+			</div>
 
-            <!-- Power Consumption Gauge on the right -->
-            <div class="gauges-container">
-                <div class="gauge-container">
-                    <div id="powerGauge" class="gauge"></div>
-                    <div class="gauge-label">Power Consumption</div> 
-                </div>
+			<!-- Power Consumption Gauge on the right -->
+			<div class="gauges-container">
+				<div class="gauge-container">
+					<div id="powerGauge" class="gauge"></div>
+					<div class="gauge-label">Power Consumption</div> 
+				</div>
 
-                <div class="gauge-container">
-                    <div id="latencyGauge" class="gauge"></div>
-                    <div class="gauge-label">Latency (ms)</div> 
-                </div>
-            </div>
+				<div class="gauge-container">
+					<div id="latencyGauge" class="gauge"></div>
+					<div class="gauge-label">Latency (ms)</div> 
+				</div>
+			</div>
 
-        </div>
+		</div>
 
-        <!-- Controls section -->
-        <div id="control" class="mt-3">
-            <!-- Dropdown for selecting existing files and file input for new uploads -->
-            <div class="dropdown">
-                <button class="custom-button btn btn-primary dropdown-toggle" type="button" id="fileDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    {{ default_file }}
-                </button>
-                <div class="dropdown-menu" id="fileDropdownMenu">
-                    <h6 class="dropdown-header">Select Existing File</h6>
-                    <div id="existingFiles"></div>
-                    <div class="dropdown-divider"></div>
-                    <h6 class="dropdown-header">Upload New File</h6>
-                    <label class="dropdown-item" for="fileInput" style="cursor: pointer;">Choose File...</label>
-                    <input type="file" id="fileInput" style="display: none;">
-                </div>
-            </div>
+		<!-- Controls section -->
+		<div id="control" class="mt-3">
+			<!-- Dropdown for selecting existing files and file input for new uploads -->
+			<div class="dropdown">
+				<button class="custom-button btn btn-primary dropdown-toggle" type="button" id="fileDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					{{ default_file }}
+				</button>
+				<div class="dropdown-menu" id="fileDropdownMenu">
+					<h6 class="dropdown-header">Select Existing File</h6>
+					<div id="existingFiles"></div>
+					<div class="dropdown-divider"></div>
+					<h6 class="dropdown-header">Upload New File</h6>
+					<label class="dropdown-item" for="fileInput" style="cursor: pointer;">Choose File...</label>
+					<input type="file" id="fileInput" style="display: none;">
+				</div>
+			</div>
 
-            <div class="dropdown">
-                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="modelDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    {{ default_model }}
-                </button>
-                <div class="dropdown-menu" aria-labelledby="modelDropdown">
-                    {% for model_name in model_names %}
-                        <a class="dropdown-item model-option" data-model="{{ model_name }}">{{ model_name }}</a>
-                    {% endfor %}
-                </div>
-            </div>
+			<div class="dropdown">
+				<button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="modelDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					{{ default_model }}
+				</button>
+				<div class="dropdown-menu" aria-labelledby="modelDropdown">
+					{% for model_name in model_names %}
+						<a class="dropdown-item model-option" data-model="{{ model_name }}">{{ model_name }}</a>
+					{% endfor %}
+				</div>
+			</div>
 
-            <!-- Device selection dropdown -->
-            <div class="dropdown">
-                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="deviceDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    {{ default_device }}
-                </button>
-                <div class="dropdown-menu" aria-labelledby="deviceDropdown">
-                    <a class="dropdown-item device-option" data-device="GPU">GPU</a>
-                    <a class="dropdown-item device-option" data-device="CPU">CPU</a>
-                    <a class="dropdown-item device-option" data-device="NPU">NPU</a>
-                </div>
-            </div>
+			<!-- Device selection dropdown -->
+			<div class="dropdown">
+				<button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="deviceDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					{{ default_device }}
+				</button>
+				<div class="dropdown-menu" aria-labelledby="deviceDropdown">
+					<a class="dropdown-item device-option" data-device="GPU">GPU</a>
+					<a class="dropdown-item device-option" data-device="CPU">CPU</a>
+					<a class="dropdown-item device-option" data-device="NPU">NPU</a>
+				</div>
+			</div>
 
-            <!-- Precision selection dropdown -->
-            <div class="dropdown">
-                <button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="precisionDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    {{ default_precision }}
-                </button>
-                <div class="dropdown-menu" aria-labelledby="precisionDropdown">
-                    <a class="dropdown-item precision-option" data-precision="FP32">FP32</a>
-                    <a class="dropdown-item precision-option" data-precision="FP16">FP16</a>
-                    <a class="dropdown-item precision-option" data-precision="INT8">INT8</a>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Table for displaying the CPU and GPU models -->
-        <div id="cpuInfo" class="mt-3">
-            <table class="table table-borderless">
-                <tr>
-                    <td><strong>CPU</strong></td>
-                    <td class="cpu-model">{{ cpu_model }}</td>
-                </tr>
-                <tr>
-                    <td><strong>GPU</strong></td>
-                    <td class="gpu-model">{{ gpu_model }}</td>
-                </tr>
-            </table>
-        </div>
+			<!-- Precision selection dropdown -->
+			<div class="dropdown">
+				<button class="custom-button btn btn-secondary dropdown-toggle" type="button" id="precisionDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					{{ default_precision }}
+				</button>
+				<div class="dropdown-menu" aria-labelledby="precisionDropdown">
+					<a class="dropdown-item precision-option" data-precision="FP32">FP32</a>
+					<a class="dropdown-item precision-option" data-precision="FP16">FP16</a>
+					<a class="dropdown-item precision-option" data-precision="INT8">INT8</a>
+				</div>
+			</div>
+		</div>
+		
+		<!-- Table for displaying the CPU and GPU models -->
+		<div id="cpuInfo" class="mt-3">
+			<table class="table table-borderless">
+				<tr>
+					<td><strong>CPU</strong></td>
+					<td class="cpu-model">{{ cpu_model }}</td>
+				</tr>
+				<tr>
+					<td><strong>GPU</strong></td>
+					<td class="gpu-model">{{ gpu_model }}</td>
+				</tr>
+			</table>
+		</div>
 
-        <div id="uploadStatus" class="mt-3"></div> <!-- Display upload status -->
-    </div>
+		<div id="uploadStatus" class="mt-3"></div> <!-- Display upload status -->
+	</div>
 {% endblock %}
 
 {% block scripts %}
   {{ super() }}
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script>
-     <script src="https://jqwidgets.com/public/jqwidgets/jqxcore.js"></script>
-    <script src="https://jqwidgets.com/public/jqwidgets/jqxdraw.js"></script> <!-- Required for gauge rendering -->
-    <script src="https://jqwidgets.com/public/jqwidgets/jqxgauge.js"></script>
-    <script>
-        $(document).ready(function() {
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script>
+	 <script src="https://jqwidgets.com/public/jqwidgets/jqxcore.js"></script>
+	<script src="https://jqwidgets.com/public/jqwidgets/jqxdraw.js"></script> <!-- Required for gauge rendering -->
+	<script src="https://jqwidgets.com/public/jqwidgets/jqxgauge.js"></script>
+	<script>
+		$(document).ready(function() {
 
-            $("#cpuGauge").jqxGauge({
-                ranges: [
-                    { startValue: 0, endValue: 50, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
-                    { startValue: 50, endValue: 80, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
-                    { startValue: 80, endValue: 100, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
-                ],
-                ticksMinor: { interval: 5, size: '5%' },
-                ticksMajor: { interval: 10, size: '9%' },
-                value: 0,
-                min: 0,
-                max: 100,
-                colorScheme: 'scheme05',
-                animationDuration: 500,
-                width: 130,
-                height: 130,
-                labels: { interval: 10 },
-                caption: {
-                    value: '',
-                    position: 'center',
-                    offset: [0, 0],
-                    visible: true,
-                    font: { size: 16, weight: 'bold' }
-                }
-            });
-            
-            initialCpuCaptionConfig = $("#cpuGauge").jqxGauge('caption');
+			$("#cpuGauge").jqxGauge({
+				ranges: [
+					{ startValue: 0, endValue: 50, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
+					{ startValue: 50, endValue: 80, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
+					{ startValue: 80, endValue: 100, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
+				],
+				ticksMinor: { interval: 5, size: '5%' },
+				ticksMajor: { interval: 10, size: '9%' },
+				value: 0,
+				min: 0,
+				max: 100,
+				colorScheme: 'scheme05',
+				animationDuration: 500,
+				width: 130,
+				height: 130,
+				labels: { interval: 10 },
+				caption: {
+					value: '',
+					position: 'center',
+					offset: [0, 0],
+					visible: true,
+					font: { size: 16, weight: 'bold' }
+				}
+			});
+			
+			initialCpuCaptionConfig = $("#cpuGauge").jqxGauge('caption');
 
-            $("#powerGauge").jqxGauge({
-                ranges: [
-                    { startValue: 0, endValue: 20, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
-                    { startValue: 20, endValue: 40, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
-                    { startValue: 40, endValue: 60, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
-                ],
-                ticksMinor: { interval: 5, size: '5%' },
-                ticksMajor: { interval: 10, size: '9%' },
-                value: 0,
-                min: 0,
-                max: 60,
-                colorScheme: 'scheme05',
-                animationDuration: 500,
-                width: 130,
-                height: 130,
-                labels: { interval: 10 },
-                caption: {
-                    value: '',
-                    position: 'bottom',
-                    offset: [0, 0],
-                    visible: true,
-                    font: { size: 16, weight: 'bold' }
-                }
-            });
+			$("#powerGauge").jqxGauge({
+				ranges: [
+					{ startValue: 0, endValue: 20, style: { fill: '#4CAF50', stroke: '#4CAF50' }, endWidth: 5, startWidth: 5 },
+					{ startValue: 20, endValue: 40, style: { fill: '#FFC107', stroke: '#FFC107' }, endWidth: 5, startWidth: 5 },
+					{ startValue: 40, endValue: 60, style: { fill: '#F44336', stroke: '#F44336' }, endWidth: 5, startWidth: 5 }
+				],
+				ticksMinor: { interval: 5, size: '5%' },
+				ticksMajor: { interval: 10, size: '9%' },
+				value: 0,
+				min: 0,
+				max: 60,
+				colorScheme: 'scheme05',
+				animationDuration: 500,
+				width: 130,
+				height: 130,
+				labels: { interval: 10 },
+				caption: {
+					value: '',
+					position: 'bottom',
+					offset: [0, 0],
+					visible: true,
+					font: { size: 16, weight: 'bold' }
+				}
+			});
 
-            initialPowerCaptionConfig = $("#powerGauge").jqxGauge('caption');
+			initialPowerCaptionConfig = $("#powerGauge").jqxGauge('caption');
 
-            $("#fpsGauge").jqxGauge({
-                showRanges: false,
-                colorScheme: 'scheme05',
-                animationDuration: 500,
-                width: 100,
-                height: 100,
-                labels: { visible: false }, // Hide labels
-                ticksMinor: { visible: false }, // Remove minor ticks
-                ticksMajor: { visible: false}, // Remove major ticks
-                pointer: { visible: false },
-                cap: { visible: false },
-                border: {
-                    size: 6,              // Border thickness
-                    style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
-                    visible: true          // Make the border visible
-                },
-                caption: {
-                    value: '', // Initial caption value
-                    position: 'top', // Center the caption in the gauge
-                    offset: [0, -8], 
-                    visible: true,
-                    font: { size: 24, weight: 'bold' }
-                }
-            });
+			$("#fpsGauge").jqxGauge({
+				showRanges: false,
+				colorScheme: 'scheme05',
+				animationDuration: 500,
+				width: 100,
+				height: 100,
+				labels: { visible: false }, // Hide labels
+				ticksMinor: { visible: false }, // Remove minor ticks
+				ticksMajor: { visible: false}, // Remove major ticks
+				pointer: { visible: false },
+				cap: { visible: false },
+				border: {
+					size: 6,              // Border thickness
+					style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
+					visible: true          // Make the border visible
+				},
+				caption: {
+					value: '', // Initial caption value
+					position: 'top', // Center the caption in the gauge
+					offset: [0, -8], 
+					visible: true,
+					font: { size: 24, weight: 'bold' }
+				}
+			});
 
-            initialFpsCaptionConfig = $("#fpsGauge").jqxGauge('caption');
+			initialFpsCaptionConfig = $("#fpsGauge").jqxGauge('caption');
 
-            $("#latencyGauge").jqxGauge({
-                showRanges: false,
-                colorScheme: 'scheme05',
-                animationDuration: 500,
-                width: 100,
-                height: 100,
-                labels: { visible: false }, // Hide labels
-                ticksMinor: { visible: false }, // Remove minor ticks
-                ticksMajor: { visible: false}, // Remove major ticks
-                pointer: { visible: false },
-                cap: { visible: false },
-                border: {
-                    size: 6,              // Border thickness
-                    style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
-                    visible: true          // Make the border visible
-                },
-                caption: {
-                    value: '', // Initial caption value
-                    position: 'top', // Center the caption in the gauge
-                    offset: [0, -8], 
-                    visible: true,
-                    font: { size: 24, weight: 'bold' }
-                }
-            });
+			$("#latencyGauge").jqxGauge({
+				showRanges: false,
+				colorScheme: 'scheme05',
+				animationDuration: 500,
+				width: 100,
+				height: 100,
+				labels: { visible: false }, // Hide labels
+				ticksMinor: { visible: false }, // Remove minor ticks
+				ticksMajor: { visible: false}, // Remove major ticks
+				pointer: { visible: false },
+				cap: { visible: false },
+				border: {
+					size: 6,              // Border thickness
+					style: { fill: '#ADD8E6', stroke: '#ADD8E6' }, // Light blue color for the border
+					visible: true          // Make the border visible
+				},
+				caption: {
+					value: '', // Initial caption value
+					position: 'top', // Center the caption in the gauge
+					offset: [0, -8], 
+					visible: true,
+					font: { size: 24, weight: 'bold' }
+				}
+			});
 
-            initialLatencyCaptionConfig = $("#latencyGauge").jqxGauge('caption');
-
-
-            function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
-                const updatedCaptionConfig = { ...initialCaptionConfig, value: value ? `${value} ${unit}` : `` };
-                $(id).jqxGauge({ caption: updatedCaptionConfig });
-                $(id).jqxGauge('value', value);
-            }
-
-            // Function to fetch and update all gauges
-            function updateGauges() {
-                $.ajax({
-                    url: "/metrics",
-                    method: "GET",
-                    success: function(data) {
-                        updateGaugeCaption("#cpuGauge", data.cpu_percent, '', initialCpuCaptionConfig);
-                        updateGaugeCaption("#powerGauge", data.power_data, '', initialPowerCaptionConfig);
-                        updateGaugeCaption("#fpsGauge", data.fps, '', initialFpsCaptionConfig);
-                        updateGaugeCaption("#latencyGauge", data.latency, '', initialLatencyCaptionConfig);
-                    },
-                    error: function() {
-                        console.error("Failed to fetch metrics data");
-                    }
-                });
-            }
-
-            // Load files dynamically for selection
-            $.getJSON('/get_uploaded_files', function(files) {
-                files.forEach(function(file) {
-                    $('#existingFiles').append(
-                        `<a class="dropdown-item file-option" data-file="${file}">${file}</a>`
-                    );
-                });
-
-                // Hide the current file from the dropdown
-                $(`.file-option[data-file="${currentFile}"]`).hide();
-            });
-
-            
-            let currentFile = "{{ default_file }}";
-            let currentDevice = "{{ default_device }}";
-            let currentPrecision = "{{ default_precision }}";
-            let currentModel = "{{ default_model }}";
-
-            function selectSource(source, animate=true) {
-                const updateSource = function() {
-                    $('#fileDropdown').text(source);
-                    $.ajax({
-                        url: '/select_source',
-                        type: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ source: source }),
-                        success: function(response) {
-                            console.log('Source selected successfully:', response);
-                            $(`.file-option[data-file="${currentFile}"]`).show();
-                            $(`.file-option[data-file="${source}"]`).hide();
-                            currentFile = source;
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Error selecting source:', error);
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        }
-                    });
-                };
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    setTimeout(updateSource, 200);
-                } else {
-                    updateSource();
-                }
-            }
-
-            function selectModel(model, animate=true) {
-                const updateModel = function() {
-                    $('#modelDropdown').text(model);
-                    $.ajax({
-                        url: '/select_model',
-                        type: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ model: model }),
-                        success: function(response) {
-                            console.log('Model selected successfully:', response);
-                            $(`.model-option[data-model="${currentModel}"]`).show();
-                            $(`.model-option[data-model="${model}"]`).hide();
-                            currentModel = model;
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Error selecting model:', error);
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        }
-                    });
-                };
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    setTimeout(updateModel, 200);
-                } else {
-                    $(`.model-option[data-model="${model}"]`).hide();
-                }
-            }
-
-            function selectDevice(device, animate=true) {
-                const updateDevice = function() {
-                    $('#deviceDropdown').text(device);
-                   $.ajax({
-                        url: '/select_device',
-                        type: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ device: device }),
-                        success: function(response) {
-                            console.log('Device selected successfully:', response);
-                            $(`.device-option[data-device="${currentDevice}"]`).show();
-                            $(`.device-option[data-device="${device}"]`).hide();
-                            currentDevice = device;
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Error selecting device:', error);
-                            alert("Device selection failed. Please try again.");
-                        }
-                    });
-                };
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    setTimeout(updateDevice, 200);
-                } else {
-                    $(`.device-option[data-device="${device}"]`).hide();
-                }
-            }
-
-            function selectPrecision(precision, animate=true) {
-                const updatePrecision = function() {
-                    $('#precisionDropdown').text(precision);
-                    $.ajax({
-                        url: '/select_precision',
-                        type: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ precision: precision }),
-                        success: function(response) {
-                            console.log('Precision selected successfully:', response);
-                            $(`.precision-option[data-precision="${currentPrecision}"]`).show();
-                            $(`.precision-option[data-precision="${precision}"]`).hide();
-                            currentPrecision = precision;
-                            $('#source').removeClass('scale-out').addClass('scale-in');
-                        },
-                        error: function(xhr, status, error) {
-                            console.error('Error selecting precision:', error);
-                        }
-                    });
-                };
-                if (animate) {
-                    $('#source').removeClass('scale-in').addClass('scale-out');
-                    setTimeout(updatePrecision, 200);
-                } else {
-                    $(`.precision-option[data-precision="${precision}"]`).hide();
-                }
-            }
-
-            selectModel(currentModel, false);
-            selectDevice(currentDevice, false);
-            selectPrecision(currentPrecision, false);
-            selectSource(currentFile, false)
-
-            setInterval(updateGauges, 1000);
-
-            $('.model-option').on('click', function() {
-                const selectedModel = $(this).data('model');
-                if (selectedModel !== currentModel) {
-                    selectModel(selectedModel);
-                }
-            });
-
-            $('.device-option').on('click', function() {
-                const selectedDevice = $(this).data('device');
-                if (selectedDevice !== currentDevice) {
-                    selectDevice(selectedDevice);
-                }
-            });
-
-            $('.precision-option').on('click', function() {
-                const selectedPrecision = $(this).data('precision');
-                if (selectedPrecision !== currentPrecision) {
-                    selectPrecision(selectedPrecision);
-                }
-            });
-
-            $('#fileDropdownMenu').on('click', '.file-option', function() {
-                const selectedFile = $(this).data('file');
-                if (selectedFile !== currentFile) {
-                    selectSource(selectedFile);
-                }
-            });
+			initialLatencyCaptionConfig = $("#latencyGauge").jqxGauge('caption');
 
 
-        });
-    </script>
+			function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
+				const updatedCaptionConfig = { ...initialCaptionConfig, value: value ? `${value} ${unit}` : `` };
+				$(id).jqxGauge({ caption: updatedCaptionConfig });
+				$(id).jqxGauge('value', value);
+			}
+
+			// Function to fetch and update all gauges
+			function updateGauges() {
+				$.ajax({
+					url: "/metrics",
+					method: "GET",
+					success: function(data) {
+						updateGaugeCaption("#cpuGauge", data.cpu_percent, '', initialCpuCaptionConfig);
+						updateGaugeCaption("#powerGauge", data.power_data, '', initialPowerCaptionConfig);
+						updateGaugeCaption("#fpsGauge", data.fps, '', initialFpsCaptionConfig);
+						updateGaugeCaption("#latencyGauge", data.latency, '', initialLatencyCaptionConfig);
+					},
+					error: function() {
+						console.error("Failed to fetch metrics data");
+					}
+				});
+			}
+
+			// Load files dynamically for selection
+			$.getJSON('/get_uploaded_files', function(files) {
+				files.forEach(function(file) {
+					$('#existingFiles').append(
+						`<a class="dropdown-item file-option" data-file="${file}">${file}</a>`
+					);
+				});
+
+				// Hide the current file from the dropdown
+				$(`.file-option[data-file="${currentFile}"]`).hide();
+			});
+
+			
+			let currentFile = "{{ default_file }}";
+			let currentDevice = "{{ default_device }}";
+			let currentPrecision = "{{ default_precision }}";
+			let currentModel = "{{ default_model }}";
+
+			function selectSource(source, animate=true) {
+				const updateSource = function() {
+					$('#fileDropdown').text(source);
+					$.ajax({
+						url: '/select_source',
+						type: 'POST',
+						contentType: 'application/json',
+						data: JSON.stringify({ source: source }),
+						success: function(response) {
+							console.log('Source selected successfully:', response);
+							$(`.file-option[data-file="${currentFile}"]`).show();
+							$(`.file-option[data-file="${source}"]`).hide();
+							currentFile = source;
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						},
+						error: function(xhr, status, error) {
+							console.error('Error selecting source:', error);
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						}
+					});
+				};
+				if (animate) {
+					$('#source').removeClass('scale-in').addClass('scale-out');
+					setTimeout(updateSource, 200);
+				} else {
+					updateSource();
+				}
+			}
+
+			function selectModel(model, animate=true) {
+				const updateModel = function() {
+					$('#modelDropdown').text(model);
+					$.ajax({
+						url: '/select_model',
+						type: 'POST',
+						contentType: 'application/json',
+						data: JSON.stringify({ model: model }),
+						success: function(response) {
+							console.log('Model selected successfully:', response);
+							$(`.model-option[data-model="${currentModel}"]`).show();
+							$(`.model-option[data-model="${model}"]`).hide();
+							currentModel = model;
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						},
+						error: function(xhr, status, error) {
+							console.error('Error selecting model:', error);
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						}
+					});
+				};
+				if (animate) {
+					$('#source').removeClass('scale-in').addClass('scale-out');
+					setTimeout(updateModel, 200);
+				} else {
+					$(`.model-option[data-model="${model}"]`).hide();
+				}
+			}
+
+			function selectDevice(device, animate=true) {
+				const updateDevice = function() {
+					$('#deviceDropdown').text(device);
+				   $.ajax({
+						url: '/select_device',
+						type: 'POST',
+						contentType: 'application/json',
+						data: JSON.stringify({ device: device }),
+						success: function(response) {
+							console.log('Device selected successfully:', response);
+							$(`.device-option[data-device="${currentDevice}"]`).show();
+							$(`.device-option[data-device="${device}"]`).hide();
+							currentDevice = device;
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						},
+						error: function(xhr, status, error) {
+							console.error('Error selecting device:', error);
+							alert("Device selection failed. Please try again.");
+						}
+					});
+				};
+				if (animate) {
+					$('#source').removeClass('scale-in').addClass('scale-out');
+					setTimeout(updateDevice, 200);
+				} else {
+					$(`.device-option[data-device="${device}"]`).hide();
+				}
+			}
+
+			function selectPrecision(precision, animate=true) {
+				const updatePrecision = function() {
+					$('#precisionDropdown').text(precision);
+					$.ajax({
+						url: '/select_precision',
+						type: 'POST',
+						contentType: 'application/json',
+						data: JSON.stringify({ precision: precision }),
+						success: function(response) {
+							console.log('Precision selected successfully:', response);
+							$(`.precision-option[data-precision="${currentPrecision}"]`).show();
+							$(`.precision-option[data-precision="${precision}"]`).hide();
+							currentPrecision = precision;
+							$('#source').removeClass('scale-out').addClass('scale-in');
+						},
+						error: function(xhr, status, error) {
+							console.error('Error selecting precision:', error);
+						}
+					});
+				};
+				if (animate) {
+					$('#source').removeClass('scale-in').addClass('scale-out');
+					setTimeout(updatePrecision, 200);
+				} else {
+					$(`.precision-option[data-precision="${precision}"]`).hide();
+				}
+			}
+
+			selectModel(currentModel, false);
+			selectDevice(currentDevice, false);
+			selectPrecision(currentPrecision, false);
+			selectSource(currentFile, false)
+
+			setInterval(updateGauges, 1000);
+
+			$('.model-option').on('click', function() {
+				const selectedModel = $(this).data('model');
+				if (selectedModel !== currentModel) {
+					selectModel(selectedModel);
+				}
+			});
+
+			$('.device-option').on('click', function() {
+				const selectedDevice = $(this).data('device');
+				if (selectedDevice !== currentDevice) {
+					selectDevice(selectedDevice);
+				}
+			});
+
+			$('.precision-option').on('click', function() {
+				const selectedPrecision = $(this).data('precision');
+				if (selectedPrecision !== currentPrecision) {
+					selectPrecision(selectedPrecision);
+				}
+			});
+
+			$('#fileDropdownMenu').on('click', '.file-option', function() {
+				const selectedFile = $(this).data('file');
+				if (selectedFile !== currentFile) {
+					selectSource(selectedFile);
+				}
+			});
+
+
+		});
+	</script>
 {% endblock %}

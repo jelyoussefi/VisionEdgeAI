@@ -18,7 +18,7 @@ import threading
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
-#log.setLevel(logging.ERROR)
+log.setLevel(logging.ERROR)
 
 # Model definitions
 models = {
@@ -76,40 +76,41 @@ class ObjectDetector:
 	def video_stream(self, client_ip):
 
 		with self.cv:
-		    self.running = True
-		    self.proc.start()
-		    
-		    if not self.check_connection(client_ip):
-		        yield (b'--frame\r\n'
-		               b'Content-Type: text/html\r\n\r\n'
-		               b'<html><body><p>Connection limit reached</p></body></html>\r\n')
-		        return
+			self.running = True
+			self.proc.start()
+			
+			if not self.check_connection(client_ip):
+				yield (b'--frame\r\n'
+					   b'Content-Type: text/html\r\n\r\n'
+					   b'<html><body><p>Connection limit reached</p></body></html>\r\n')
+				return
 
 		try:
-		    while self.running:
-		        frame = self.cap.read()
-		        if frame is not None and self.model is not None:
-		            try:
-		                frame = self.model.predict(frame)
-		            except Exception as e:
-		                print(f"error {e}")
-		                continue
+			while self.running:
+				frame = self.cap.read()
+				if frame is not None and self.model is not None:
+					with self.cv:
+						try:
+							frame = self.model.predict(frame)
+						except Exception as e:
+							print(f"error {e}")
+							continue
 
-		        with self.cv:
-		            if frame is None:
-		                try:
-		                    frame = self.queue.get(timeout=0.001)
-		                except Empty:
-		                    continue
-		            if frame is not None:
-		                ret, buffer = cv2.imencode('.jpg', frame)
-		                frame = buffer.tobytes()
-		                yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+				with self.cv:
+					if frame is None:
+						try:
+							frame = self.queue.get(timeout=0.001)
+						except Empty:
+							continue
+					if frame is not None:
+						ret, buffer = cv2.imencode('.jpg', frame)
+						frame = buffer.tobytes()
+						yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-		        #time.sleep(0.005)
+				time.sleep(0.005)
 		
 		finally:
-		    self.release_connection(client_ip)
+			self.release_connection(client_ip)
 
 	def run(self):
 		app = self.app
