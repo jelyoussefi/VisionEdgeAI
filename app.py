@@ -18,7 +18,7 @@ import threading
 
 # Disable Flask's default request logging
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+#log.setLevel(logging.ERROR)
 
 # Model definitions
 models = {
@@ -36,7 +36,7 @@ class ObjectDetector:
 	def __init__(self):
 		self.app = Flask(__name__)
 		self.port = 5000
-		self.running = True
+		self.running = False
 		self.cv = Condition()
 		self.queue = Queue(maxsize=16)
 		self.upload_folder = '/workspace/videos'
@@ -46,7 +46,6 @@ class ObjectDetector:
 		self.model = self.model_name = self.device = self.input = self.data_type = self.cap = None
 		self.proc = Thread(target=self.metrics_handler)
 		self.proc.daemon = True
-		self.proc.start()
 
 	def init(self, model_name, input, device="GPU", data_type="FP16"):
 		with self.cv:
@@ -64,6 +63,8 @@ class ObjectDetector:
 					except Exception as e:
 						print(f"Cannot init the model: {e}")
 					self.queue.queue.clear()
+					self.cpu_loads.clear()
+					self.power_consumptions.clear()
 
 			if input != self.input:
 				self.input = input
@@ -73,34 +74,42 @@ class ObjectDetector:
 			self.cv.notify_all()
 
 	def video_stream(self, client_ip):
-		if not self.check_connection(client_ip):
-			yield (b'--frame\r\n'
-			   b'Content-Type: text/html\r\n\r\n'
-			   b'<html><body><p>Connection limit reached</p></body></html>\r\n')
-			return
-		try:
-			while self.running:
-				if self.cap is not None:
-					frame = self.cap.read()
-					if frame is not None and self.model is not None:
-						try:
-							frame = self.model.predict(frame)
-						except Exception as e:
-							print(f"error {e}")
-							continue
 
-						if frame is None:
-							try:
-								frame = self.queue.get(timeout=0.01)
-							except Empty:
-								continue
-						if frame is not None:
-							ret, buffer = cv2.imencode('.jpg', frame)
-							frame = buffer.tobytes()
-							yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-				time.sleep(0.005)
+		with self.cv:
+		    self.running = True
+		    self.proc.start()
+		    
+		    if not self.check_connection(client_ip):
+		        yield (b'--frame\r\n'
+		               b'Content-Type: text/html\r\n\r\n'
+		               b'<html><body><p>Connection limit reached</p></body></html>\r\n')
+		        return
+
+		try:
+		    while self.running:
+		        frame = self.cap.read()
+		        if frame is not None and self.model is not None:
+		            try:
+		                frame = self.model.predict(frame)
+		            except Exception as e:
+		                print(f"error {e}")
+		                continue
+
+		        with self.cv:
+		            if frame is None:
+		                try:
+		                    frame = self.queue.get(timeout=0.001)
+		                except Empty:
+		                    continue
+		            if frame is not None:
+		                ret, buffer = cv2.imencode('.jpg', frame)
+		                frame = buffer.tobytes()
+		                yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+		        #time.sleep(0.005)
+		
 		finally:
-			self.release_connection(client_ip)
+		    self.release_connection(client_ip)
 
 	def run(self):
 		app = self.app
@@ -114,7 +123,7 @@ class ObjectDetector:
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 			model_names = list(models.keys())
-			default_device = "GPU"
+			default_device = "CPU"
 			default_precision = "FP16"
 			default_model = model_names[0] if model_names else "No models available"
 			default_source = os.path.join(self.upload_folder, default_file)
@@ -138,19 +147,20 @@ class ObjectDetector:
 		@app.route('/metrics', methods=['GET'])
 		def get_metrics():
 			try:
-				cpu_percent = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
-				power_data = int(mean(self.power_consumptions) if len(self.power_consumptions) > 0 else 0)
-				fps = latency = 0
-				if self.model is not None:
-					fps = int(self.model.fps())
-					latency = int(self.model.latency())
+				cpu_load = power_data = fps = latency = None
+				if self.running:
+					cpu_percent = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
+					power_data = int(mean(self.power_consumptions) if len(self.power_consumptions) > 0 else 0)
+					if self.model is not None:
+						fps = int(self.model.fps())
+						latency = int(self.model.latency())
 
-				metrics = {
-					'cpu_percent': cpu_percent,
-					'power_data': power_data,
-					'fps': fps,
-					'latency': latency
-				}
+					metrics = {
+						'cpu_percent': cpu_percent,
+						'power_data': power_data,
+						'fps': fps,
+						'latency': latency
+					}
 				
 				return jsonify(metrics)
 			except Exception as e:
@@ -318,6 +328,7 @@ class ObjectDetector:
 				active_connections[client_ip].cancel()
 				del active_connections[client_ip]
 				print(f"Connection released for IP {client_ip}.")
+	
 	def metrics_handler(self):
 		while self.running:
 			self.cpu_loads.append(psutil.cpu_percent(0))

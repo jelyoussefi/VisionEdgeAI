@@ -108,7 +108,6 @@ cdef class YoloV8ModelBase():
 
 		return keep_boxes
 
-
 	cdef process_box_output(self, np.ndarray[float, ndim=3] box_output, np.ndarray[uint8_t, ndim=3] orig_img):
 
 		cdef np.ndarray[float, ndim=2]  predictions = np.squeeze(box_output).T

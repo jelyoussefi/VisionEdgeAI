@@ -240,7 +240,7 @@
 
 
             function updateGaugeCaption(id, value, unit, initialCaptionConfig) {
-                const updatedCaptionConfig = { ...initialCaptionConfig, value: `${value} ${unit}` };
+                const updatedCaptionConfig = { ...initialCaptionConfig, value: value ? `${value} ${unit}` : `` };
                 $(id).jqxGauge({ caption: updatedCaptionConfig });
                 $(id).jqxGauge('value', value);
             }
