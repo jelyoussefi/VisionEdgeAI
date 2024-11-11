@@ -123,7 +123,7 @@ class ObjectDetector:
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 			model_names = list(models.keys())
-			default_device = "GPU"
+			default_device = "CPU"
 			default_precision = "FP16"
 			default_model = model_names[0] if model_names else "No models available"
 			default_source = os.path.join(self.upload_folder, default_file)
@@ -149,18 +149,18 @@ class ObjectDetector:
 			try:
 				cpu_load = power_data = fps = latency = None
 				if self.running:
-					cpu_percent = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
+					cpu_load = int(mean(self.cpu_loads) if len(self.cpu_loads) > 0 else 0)
 					power_data = int(mean(self.power_consumptions) if len(self.power_consumptions) > 0 else 0)
 					if self.model is not None:
 						fps = int(self.model.fps())
 						latency = int(self.model.latency())
 
-					metrics = {
-						'cpu_percent': cpu_percent,
-						'power_data': power_data,
-						'fps': fps,
-						'latency': latency
-					}
+				metrics = {
+					'cpu_percent': cpu_load,
+					'power_data': power_data,
+					'fps': fps,
+					'latency': latency
+				}
 				
 				return jsonify(metrics)
 			except Exception as e:

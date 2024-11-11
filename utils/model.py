@@ -56,7 +56,7 @@ class Model():
 					self.latencies.append(perf_counter() - start_time)
 			
 		except Exception as e:
-			print(f"error {e}")
+			pass
 
 		return frame
 
