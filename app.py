@@ -124,7 +124,7 @@ class ObjectDetector:
 			cpu_model = self.get_cpu_model()
 			gpu_model = self.get_gpu_model()
 			model_names = list(models.keys())
-			default_device = "CPU"
+			default_device = "GPU"
 			default_precision = "FP16"
 			default_model = model_names[0] if model_names else "No models available"
 			default_source = os.path.join(self.upload_folder, default_file)
