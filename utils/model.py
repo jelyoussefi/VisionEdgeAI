@@ -38,22 +38,26 @@ class Model():
 
 	def predict(self, image:np.ndarray):
 		frame = None
+		try:
+			if image is not None :
+				if 	self.frames_number == 0:
+					self.start_time = perf_counter()
 
-		if image is not None :
-			if 	self.frames_number == 0:
-				self.start_time = perf_counter()
+				self.frames_number += 1
 
-			self.frames_number += 1
-
-			resized_image = self.preprocess(image)
+				resized_image = self.preprocess(image)
+				
+				start_time = perf_counter()
+				if self.async_mode:
+					self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
+				else:
+					result = self.model(resized_image)[self.output_tensor]
+					frame = self.postprocess(result, image)
+					self.latencies.append(perf_counter() - start_time)
 			
-			start_time = perf_counter()
-			if self.async_mode:
-				self.infer_queue.start_async(inputs={self.input_layer_name: resized_image}, userdata=(image, start_time))
-			else:
-				result = self.model(resized_image)[self.output_tensor]
-				frame = self.postprocess(result, image)
-				self.latencies.append(perf_counter() - start_time)
+		except Exception as e:
+			print(f"error {e}")
+
 		return frame
 
 	def ov_callback(self, infer_request, userdata):

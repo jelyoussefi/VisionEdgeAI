@@ -88,24 +88,23 @@ class ObjectDetector:
 		try:
 			while self.running:
 				frame = self.cap.read()
-				if frame is not None and self.model is not None:
-					with self.cv:
+				with self.cv:
+					if frame is not None and self.model is not None:
 						try:
 							frame = self.model.predict(frame)
 						except Exception as e:
 							print(f"error {e}")
 							continue
 
-				with self.cv:
-					if frame is None:
-						try:
-							frame = self.queue.get(timeout=0.001)
-						except Empty:
-							continue
-					if frame is not None:
-						ret, buffer = cv2.imencode('.jpg', frame)
-						frame = buffer.tobytes()
-						yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+				if frame is None:
+					try:
+						frame = self.queue.get(timeout=0.001)
+					except Empty:
+						continue
+				if frame is not None:
+					ret, buffer = cv2.imencode('.jpg', frame)
+					frame = buffer.tobytes()
+					yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 				time.sleep(0.005)
 		
@@ -322,7 +321,6 @@ class ObjectDetector:
 				return True
 
 	def release_connection(self, client_ip):
-		return 
 		with lock:
 			if client_ip in active_connections:
 				# Cancel the timer and release the connection
